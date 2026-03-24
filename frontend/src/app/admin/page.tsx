@@ -94,10 +94,6 @@ export default function AdminPage() {
     return `${fmt(nextStart)}\n~\n${fmt(nextEnd)}`;
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const handleAddDept = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDeptName.trim()) return;
