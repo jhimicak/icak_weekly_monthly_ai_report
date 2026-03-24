@@ -72,7 +72,7 @@ export default function AdminPage() {
         document.getElementById("aggregate-preview")?.scrollIntoView({ behavior: "smooth" });
       }, 100);
     } catch {
-      toast.error("취합에 실패했습니다.");
+      toast("error", "취합에 실패했습니다.");
     } finally {
       setAggregating(false);
     }
