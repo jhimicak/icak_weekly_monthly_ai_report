@@ -312,10 +312,14 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
       toast("error", "PDF 파일만 업로드 가능합니다.");
       return;
     }
+    if (!supabase) {
+      toast("error", "Supabase 설정이 필요합니다. 관리자에게 문의해주세요. (NEXT_PUBLIC_SUPABASE_URL 미설정)");
+      return;
+    }
     setSaving(true);
     try {
       const fileName = `${reportId}_${deptId}_${Date.now()}.pdf`;
-      const { data, error } = await supabase.storage.from("reports").upload(fileName, file, { upsert: true });
+      const { error } = await supabase.storage.from("reports").upload(fileName, file, { upsert: true });
       if (error) throw error;
       
       const { data: publicData } = supabase.storage.from("reports").getPublicUrl(fileName);
@@ -329,7 +333,7 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
       setSubmissionType("file");
       setFileUrl(publicData.publicUrl);
       toast("success", "PDF 파일이 성공적으로 제출되었습니다.");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       toast("error", "파일 업로드 및 제출에 실패했습니다.");
     } finally {
@@ -337,6 +341,7 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
+
 
   // ── AI 요약 훅 ────────────────────────────────────────────────────────────────
   const handleAiSummarize = async () => {
