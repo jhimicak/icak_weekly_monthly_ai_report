@@ -107,13 +107,13 @@ def delete_department_items(report_id: int, dept_id: int, db: Session = Depends(
         ReportItem.dept_id == dept_id,
     ).delete(synchronize_session=False)
 
-    # 2. 상태를 pending으로 롤백
+    # 2. 상태를 draft으로 롤백
     status = db.query(DeptStatus).filter(
         DeptStatus.report_id == report_id,
         DeptStatus.dept_id == dept_id,
     ).first()
     if status:
-        status.status = SubmitStatus.pending
+        status.status = SubmitStatus.draft
 
     db.commit()
 
