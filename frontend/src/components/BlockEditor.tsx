@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, KeyboardEvent } from "react";
+import { useRef, useState, useEffect, KeyboardEvent } from "react";
 import { Draggable } from "@hello-pangea/dnd";
-import { GripVertical, Trash2 } from "lucide-react";
+import { GripVertical, Trash2, Copy } from "lucide-react";
 import { ReportItem } from "@/lib/types";
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
   index: number;
   onChange: (id: number, changes: Partial<ReportItem>) => void;
   onDelete: (id: number) => void;
+  onClone?: (id: number) => void; // 반대 컬럼으로 복사
 }
 
 /** level에 따른 기호와 들여쓰기 */
@@ -19,30 +20,40 @@ const LEVEL_MAP: Record<number, { symbol: string; indent: string }> = {
   3: { symbol: "-",  indent: "ml-12" },
 };
 
-export default function BlockEditor({ item, index, onChange, onDelete }: Props) {
+export default function BlockEditor({ item, index, onChange, onDelete, onClone }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { symbol, indent } = LEVEL_MAP[item.level] ?? LEVEL_MAP[1];
+
+  // 우클릭 컨텍스트 메뉴 상태
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // 컨텍스트 메뉴 바깥 클릭 시 닫기
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenu(null);
+      }
+    };
+    if (menu) document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [menu]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Tab") {
       e.preventDefault();
       if (e.shiftKey) {
-        // Shift+Tab → level -1 (최소 1)
         if (item.level > 1) onChange(item.id, { level: (item.level - 1) as 1 | 2 | 3 });
       } else {
-        // Tab → level +1 (최대 3)
         if (item.level < 3) onChange(item.id, { level: (item.level + 1) as 1 | 2 | 3 });
       }
     }
     if (e.key === "Enter" && !e.shiftKey) {
-      // Enter → 새 블록 추가 신호 (부모에서 처리)
-      // 여기서는 기본 동작 유지 (텍스트에어리아 줄바꿈 방지)
       e.preventDefault();
     }
   };
 
   const handleInput = () => {
-    // 자동 높이 조절
     const el = textareaRef.current;
     if (el) {
       el.style.height = "auto";
@@ -56,7 +67,7 @@ export default function BlockEditor({ item, index, onChange, onDelete }: Props) 
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
-          className={`group flex items-start gap-2 rounded-lg px-3 py-2 border transition-all duration-150 ${indent} ${
+          className={`group relative flex items-start gap-2 rounded-lg px-3 py-2 border transition-all duration-150 ${indent} ${
             snapshot.isDragging ? "dnd-dragging" : ""
           }`}
           style={{
@@ -67,6 +78,11 @@ export default function BlockEditor({ item, index, onChange, onDelete }: Props) 
             borderColor: snapshot.isDragging
               ? "var(--accent)"
               : "var(--border)",
+          }}
+          onContextMenu={(e) => {
+            if (!onClone) return;
+            e.preventDefault();
+            setMenu({ x: e.clientX, y: e.clientY });
           }}
         >
           {/* 드래그 핸들 */}
@@ -114,6 +130,33 @@ export default function BlockEditor({ item, index, onChange, onDelete }: Props) 
           >
             <Trash2 size={13} />
           </button>
+
+          {/* 우클릭 컨텍스트 메뉴 */}
+          {menu && onClone && (
+            <div
+              ref={menuRef}
+              className="fixed z-50 rounded-lg border shadow-xl py-1 text-sm"
+              style={{
+                left: menu.x,
+                top: menu.y,
+                background: "var(--bg-card)",
+                borderColor: "var(--border)",
+                minWidth: 180,
+              }}
+            >
+              <button
+                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[var(--bg-card-hover)] transition-colors"
+                style={{ color: "var(--text-primary)" }}
+                onClick={() => {
+                  onClone(item.id);
+                  setMenu(null);
+                }}
+              >
+                <Copy size={13} style={{ color: "var(--accent)" }} />
+                반대 컬럼으로 복사
+              </button>
+            </div>
+          )}
         </div>
       )}
     </Draggable>

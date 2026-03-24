@@ -91,9 +91,16 @@ body {
 
 /* Print Styles (PDF Export) */
 @media print {
+  /* 가로(landscape) A4 강제 */
+  @page {
+    size: A4 landscape;
+    margin: 12mm 14mm;
+  }
+
   body {
     background: #ffffff !important;
     color: #000000 !important;
+    font-size: 10pt;
   }
   nav, button, .print\:hidden {
     display: none !important;
@@ -112,10 +119,15 @@ body {
   #aggregate-preview span {
     color: #000000 !important;
   }
-  .page-break-before {
-    page-break-before: always;
-  }
+  /* 페이지 구분 — 표지와 부서별 섹션 각각 독립 페이지 */
   .page-break-after {
-    page-break-after: always;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .page-break-before {
+    page-break-before: always !important;
+    break-before: page !important;
   }
 }

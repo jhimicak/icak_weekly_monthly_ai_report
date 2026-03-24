@@ -14,6 +14,7 @@ interface Props {
   onAdd: (category: Category) => void;
   onChange: (id: number, changes: Partial<ReportItem>) => void;
   onDelete: (id: number) => void;
+  onClone?: (id: number) => void; // 반대 컬럼으로 복사
 }
 
 export default function ColumnDropZone({
@@ -25,6 +26,7 @@ export default function ColumnDropZone({
   onAdd,
   onChange,
   onDelete,
+  onClone,
 }: Props) {
   const category = droppableId.startsWith("achievement")
     ? ("achievement" as Category)
@@ -91,6 +93,7 @@ export default function ColumnDropZone({
                 index={index}
                 onChange={onChange}
                 onDelete={onDelete}
+                onClone={onClone}
               />
             ))}
             {provided.placeholder}

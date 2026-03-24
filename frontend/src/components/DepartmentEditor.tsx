@@ -122,6 +122,43 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
     }));
   };
 
+  // ── 항목 복사 (우클릭) ─────────────────────────────────────────────────────────
+  const handleClone = async (id: number) => {
+    let srcCol: "achievement" | "plan" = "achievement";
+    let index = items.achievement.findIndex(i => i.id === id);
+    if (index === -1) {
+      srcCol = "plan";
+      index = items.plan.findIndex(i => i.id === id);
+    }
+    if (index === -1) return;
+
+    const toClone = items[srcCol][index];
+    const dstCol = srcCol === "achievement" ? "plan" : "achievement";
+
+    try {
+      const newDbItem = await api.items.create(reportId, {
+        dept_id: deptId,
+        category: dstCol,
+        level: toClone.level,
+        content: toClone.content,
+      });
+
+      setItems((prev) => {
+        const newDstItems = [...prev[dstCol], newDbItem];
+        const rp = newDstItems.map((it, i) => ({
+          id: it.id,
+          display_order: i,
+          category: dstCol as Category,
+        }));
+        api.items.reorder(rp).catch(console.error);
+        return { ...prev, [dstCol]: newDstItems };
+      });
+      toast("success", "반대 컬럼으로 복사되었습니다.");
+    } catch (error) {
+      toast("error", "복사에 실패했습니다.");
+    }
+  };
+
   // ── 드래그 앤 드롭 ────────────────────────────────────────────────────────────
   // 드래그 시작 시 Ctrl 상태를 잠금 (dnd가 pointer events를 가로채기 전에 캡처)
   const onDragStart = () => {
@@ -341,6 +378,7 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
             onAdd={handleAdd}
             onChange={handleChange}
             onDelete={handleDelete}
+            onClone={handleClone}
           />
           <ColumnDropZone
             droppableId={`plan-${deptId}`}
@@ -351,6 +389,7 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
             onAdd={handleAdd}
             onChange={handleChange}
             onDelete={handleDelete}
+            onClone={handleClone}
           />
         </div>
       </DragDropContext>
@@ -359,8 +398,8 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
       <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>
         Tab → 하위단계(ㅁ→ㅇ→-) &nbsp;·&nbsp;
         Shift+Tab → 상위단계 &nbsp;·&nbsp;
-        드래그로 순서 변경 및 컬럼 간 이동 &nbsp;·&nbsp;
-        <strong style={{ color: "var(--accent-light)" }}>Ctrl 누른 채 반대 컬럼으로 드래그</strong>하면 복사
+        드래그로 순서 변경 및 이동 &nbsp;·&nbsp;
+        <strong style={{ color: "var(--accent-light)" }}>항목 우클릭 또는 Ctrl+드래그</strong>하여 반대 컬럼 복사
       </p>
     </div>
   );
