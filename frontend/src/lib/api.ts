@@ -26,6 +26,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
    departments: {
     list: () => req<Department[]>("/departments"),
+    get: (id: number) => req<Department>(`/departments/${id}`),
     create: (name: string) =>
       req<Department>("/departments", {
         method: "POST",
