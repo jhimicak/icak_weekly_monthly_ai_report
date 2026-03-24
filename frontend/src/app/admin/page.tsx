@@ -7,9 +7,9 @@ import { Report, DeptStatus, AggregateResult } from "@/lib/types";
 import StatusBadge from "@/components/StatusBadge";
 import { toast } from "@/components/Toast";
 import {
-  BarChart3, RefreshCw, FileDown, Loader2, ChevronDown, ChevronUp,
-  ExternalLink, Building2, Plus, Trash2
+  ExternalLink, Building2, Plus, Trash2, Download
 } from "lucide-react";
+import { generateMergedPdf } from "@/lib/pdfBuilder";
 
 const LEVEL_SYMBOL: Record<number, string> = { 1: "□", 2: "ㅇ", 3: "-", 4: "·" };
 const LEVEL_INDENT: Record<number, string> = {
@@ -134,6 +134,20 @@ export default function AdminPage() {
   };
 
   const handlePrint = () => window.print();
+
+  const handleDownloadMerged = async () => {
+    if (!aggregate) return;
+    setAggregating(true);
+    try {
+      await generateMergedPdf(aggregate, "aggregate-preview");
+      toast("success", "통합 PDF 다운로드를 시작합니다.");
+    } catch (e) {
+      console.error(e);
+      toast("error", "PDF 병합 중 오류가 발생했습니다.");
+    } finally {
+      setAggregating(false);
+    }
+  };
 
   const submittedCount = statuses.filter((s) => s.status === "submitted").length;
   const totalCount = statuses.length;
@@ -332,9 +346,17 @@ export default function AdminPage() {
                 {showAggregate ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 {showAggregate ? "접기" : "펼치기"}
               </button>
+              <button 
+                className="btn-primary !bg-emerald-600 hover:!bg-emerald-700" 
+                onClick={handleDownloadMerged}
+                disabled={aggregating}
+              >
+                {aggregating ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                통합 PDF 다운로드
+              </button>
               <button className="btn-ghost" onClick={handlePrint}>
                 <FileDown size={14} />
-                PDF 저장
+                단순 인쇄
               </button>
             </>
           )}
@@ -363,7 +385,11 @@ export default function AdminPage() {
 
           {/* 부서별 보고서 양식 */}
           {aggregate.sections.map((section) => (
-            <div key={section.dept.id} className="relative mb-12 print:mb-0 print:min-h-[200mm] page-break-after pt-8">
+            <div 
+              key={section.dept.id} 
+              data-dept-id={section.dept.id}
+              className="relative mb-12 print:mb-0 print:min-h-[210mm] page-break-after pt-8"
+            >
               
               <div className="text-center mb-6">
                 <h2 className="text-3xl font-bold tracking-[0.5em] underline underline-offset-8 decoration-2 inline-block">
@@ -390,32 +416,44 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td className="border border-gray-800 p-2 align-top text-center text-xs whitespace-pre-wrap">
-                      {aggregate.report.start_date.slice(5).replace("-", ".")}
-                      <br/>~<br/>
-                      {aggregate.report.end_date.slice(5).replace("-", ".")}
-                    </td>
-                    <td className="border border-gray-800 p-4 align-top leading-relaxed">
-                      {section.items.filter(i => i.category === "achievement").map(item => (
-                        <div key={item.id} className={`flex gap-2 text-sm ${LEVEL_INDENT[item.level] || 'ml-0'} mb-1`}>
-                          <span className="shrink-0">{LEVEL_SYMBOL[item.level] || '·'}</span>
-                          <span className="whitespace-pre-wrap leading-tight text-gray-900">{item.content}</span>
+                  {section.dept.submission_type === "file" ? (
+                    <tr>
+                      <td colSpan={4} className="border border-gray-800 p-20 text-center">
+                        <div className="flex flex-col items-center gap-2 opacity-50">
+                          <FileDown size={40} />
+                          <p className="font-bold">PDF 파일 업로드 방식으로 제출됨</p>
+                          <p className="text-xs">최종 통합 PDF 생성 시 해당 파일이 삽입됩니다.</p>
                         </div>
-                      ))}
-                    </td>
-                    <td className="border border-gray-800 p-2 align-top text-center text-xs whitespace-pre-wrap">
-                      {calculateNextWeek(aggregate.report.end_date)}
-                    </td>
-                    <td className="border border-gray-800 p-4 align-top leading-relaxed">
-                      {section.items.filter(i => i.category === "plan").map(item => (
-                        <div key={item.id} className={`flex gap-2 text-sm ${LEVEL_INDENT[item.level] || 'ml-0'} mb-1`}>
-                          <span className="shrink-0">{LEVEL_SYMBOL[item.level] || '·'}</span>
-                          <span className="whitespace-pre-wrap leading-tight text-gray-900">{item.content}</span>
-                        </div>
-                      ))}
-                    </td>
-                  </tr>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr>
+                      <td className="border border-gray-800 p-2 align-top text-center text-xs whitespace-pre-wrap">
+                        {aggregate.report.start_date.slice(5).replace("-", ".")}
+                        <br/>~<br/>
+                        {aggregate.report.end_date.slice(5).replace("-", ".")}
+                      </td>
+                      <td className="border border-gray-800 p-4 align-top leading-relaxed">
+                        {section.items.filter(i => i.category === "achievement").map(item => (
+                          <div key={item.id} className={`flex gap-2 text-sm ${LEVEL_INDENT[item.level] || 'ml-0'} mb-1`}>
+                            <span className="shrink-0">{LEVEL_SYMBOL[item.level] || '·'}</span>
+                            <span className="whitespace-pre-wrap leading-tight text-gray-900">{item.content}</span>
+                          </div>
+                        ))}
+                      </td>
+                      <td className="border border-gray-800 p-2 align-top text-center text-xs whitespace-pre-wrap">
+                        {calculateNextWeek(aggregate.report.end_date)}
+                      </td>
+                      <td className="border border-gray-800 p-4 align-top leading-relaxed">
+                        {section.items.filter(i => i.category === "plan").map(item => (
+                          <div key={item.id} className={`flex gap-2 text-sm ${LEVEL_INDENT[item.level] || 'ml-0'} mb-1`}>
+                            <span className="shrink-0">{LEVEL_SYMBOL[item.level] || '·'}</span>
+                            <span className="whitespace-pre-wrap leading-tight text-gray-900">{item.content}</span>
+                          </div>
+                        ))}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

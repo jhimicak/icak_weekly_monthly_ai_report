@@ -77,8 +77,15 @@ class DeptStatusRead(BaseModel):
     report_id: int
     dept_id: int
     status: SubmitStatus
+    submission_type: str
+    file_url: str | None = None
     dept_name: str = ""
     report_title: str = ""
+
+
+class SubmitPayload(BaseModel):
+    submission_type: str = "direct"
+    file_url: str | None = None
 
 
 # ── AI ─────────────────────────────────────────────────────────────────────────

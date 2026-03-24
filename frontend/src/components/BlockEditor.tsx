@@ -82,7 +82,7 @@ export default function BlockEditor({ item, index, onChange, onDelete, onClone }
           onContextMenu={(e) => {
             if (!onClone) return;
             e.preventDefault();
-            setMenu({ x: e.clientX, y: e.clientY });
+            onClone(item.id);
           }}
         >
           {/* 드래그 핸들 */}
@@ -130,33 +130,6 @@ export default function BlockEditor({ item, index, onChange, onDelete, onClone }
           >
             <Trash2 size={13} />
           </button>
-
-          {/* 우클릭 컨텍스트 메뉴 */}
-          {menu && onClone && (
-            <div
-              ref={menuRef}
-              className="fixed z-50 rounded-lg border shadow-xl py-1 text-sm"
-              style={{
-                left: menu.x,
-                top: menu.y,
-                background: "var(--bg-card)",
-                borderColor: "var(--border)",
-                minWidth: 180,
-              }}
-            >
-              <button
-                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[var(--bg-card-hover)] transition-colors"
-                style={{ color: "var(--text-primary)" }}
-                onClick={() => {
-                  onClone(item.id);
-                  setMenu(null);
-                }}
-              >
-                <Copy size={13} style={{ color: "var(--accent)" }} />
-                반대 컬럼으로 복사
-              </button>
-            </div>
-          )}
         </div>
       )}
     </Draggable>

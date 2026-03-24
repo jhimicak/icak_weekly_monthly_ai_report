@@ -49,9 +49,10 @@ export const api = {
       }),
     statuses: (reportId: number) =>
       req<DeptStatus[]>(`/reports/${reportId}/statuses`),
-    submit: (reportId: number, deptId: number) =>
+    submit: (reportId: number, deptId: number, payload?: { submission_type: "direct" | "file"; file_url?: string | null }) =>
       req<DeptStatus>(`/reports/${reportId}/submit/${deptId}`, {
         method: "POST",
+        body: payload ? JSON.stringify(payload) : undefined,
       }),
     recall: (reportId: number, deptId: number) =>
       req<DeptStatus>(`/reports/${reportId}/recall/${deptId}`, {

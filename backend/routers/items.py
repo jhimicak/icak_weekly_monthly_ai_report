@@ -227,6 +227,9 @@ def aggregate_report(report_id: int, db: Session = Depends(get_db)):
         .all()
     )
     for dept in depts:
+        # 해당 부서의 상태(제출 방식 등) 조회
+        dept_status = next((ds for ds in submitted if ds.dept_id == dept.id), None)
+        
         items = (
             db.query(ReportItem)
             .filter_by(report_id=report_id, dept_id=dept.id)
@@ -234,7 +237,12 @@ def aggregate_report(report_id: int, db: Session = Depends(get_db)):
             .all()
         )
         sections.append({
-            "dept": {"id": dept.id, "name": dept.name},
+            "dept": {
+                "id": dept.id, 
+                "name": dept.name,
+                "submission_type": dept_status.submission_type if dept_status else "direct",
+                "file_url": dept_status.file_url if dept_status else None,
+            },
             "items": [
                 {
                     "id": item.id,

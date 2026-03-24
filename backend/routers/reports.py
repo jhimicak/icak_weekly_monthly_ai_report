@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Report, Department, DeptStatus, SubmitStatus
-from schemas import ReportCreate, ReportRead, DeptStatusRead
+from schemas import ReportCreate, ReportRead, DeptStatusRead, SubmitPayload
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -67,13 +67,18 @@ def get_statuses(report_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{report_id}/submit/{dept_id}", response_model=DeptStatusRead)
-def submit_report(report_id: int, dept_id: int, db: Session = Depends(get_db)):
+def submit_report(report_id: int, dept_id: int, payload: SubmitPayload = None, db: Session = Depends(get_db)):
     ds = db.query(DeptStatus).filter_by(
         report_id=report_id, dept_id=dept_id
     ).first()
     if not ds:
         raise HTTPException(404, detail="해당 부서 상태를 찾을 수 없습니다.")
+    
     ds.status = SubmitStatus.submitted
+    if payload:
+        ds.submission_type = payload.submission_type
+        ds.file_url = payload.file_url
+
     db.commit()
     db.refresh(ds)
     r = DeptStatusRead.model_validate(ds)

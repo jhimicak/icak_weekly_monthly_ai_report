@@ -105,6 +105,12 @@ class DeptStatus(Base):
     status: Mapped[SubmitStatus] = mapped_column(
         Enum(SubmitStatus), nullable=False, default=SubmitStatus.draft
     )
+    submission_type: Mapped[str] = mapped_column(
+        String, nullable=False, default="direct"
+    )
+    file_url: Mapped[str | None] = mapped_column(
+        String, nullable=True
+    )
 
     # Relationships
     report: Mapped["Report"] = relationship(back_populates="dept_statuses")

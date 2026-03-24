@@ -32,12 +32,19 @@ export interface DeptStatus {
   report_id: number;
   dept_id: number;
   status: SubmitStatus;
+  submission_type: "direct" | "file";
+  file_url?: string | null;
   dept_name: string;
   report_title: string;
 }
 
 export interface AggregateSection {
-  dept: Pick<Department, "id" | "name">;
+  dept: {
+    id: number;
+    name: string;
+    submission_type: "direct" | "file";
+    file_url?: string | null;
+  };
   items: ReportItem[];
 }
 

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { DragDropContext, DropResult } from "@hello-pangea/dnd";
 import {
-  RotateCcw, Send, CheckCircle, Loader2, Sparkles, Unlock
+  RotateCcw, Send, CheckCircle, Loader2, Sparkles, Unlock, UploadCloud, FileText
 } from "lucide-react";
 import { ReportItem, Category, Department, Report } from "@/lib/types";
 import { api } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import { toast } from "@/components/Toast";
 import ColumnDropZone from "@/components/ColumnDropZone";
 
@@ -30,6 +31,9 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
   const [rolling, setRolling] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [submissionType, setSubmissionType] = useState<"direct" | "file">("direct");
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // Ctrl 키 상태를 ref로 관리 (re-render 없이 즉각 반영)
   const isCtrlRef = useRef(false);
   // 드래그 시작 시점의 복제 의도를 잠금 (드래그 중 Ctrl 상태 변화 무관)
@@ -70,6 +74,10 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
       });
       const myStatus = statuses.find((s) => s.dept_id === deptId);
       setSubmitted(myStatus?.status === "submitted");
+      if (myStatus) {
+        setSubmissionType(myStatus.submission_type || "direct");
+        setFileUrl(myStatus.file_url || null);
+      }
     } finally {
       setLoading(false);
     }
@@ -124,36 +132,38 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
 
   // ── 항목 복사 (우클릭) ─────────────────────────────────────────────────────────
   const handleClone = async (id: number) => {
-    let srcCol: "achievement" | "plan" = "achievement";
+    let col: "achievement" | "plan" = "achievement";
     let index = items.achievement.findIndex(i => i.id === id);
     if (index === -1) {
-      srcCol = "plan";
+      col = "plan";
       index = items.plan.findIndex(i => i.id === id);
     }
     if (index === -1) return;
 
-    const toClone = items[srcCol][index];
-    const dstCol = srcCol === "achievement" ? "plan" : "achievement";
+    const toClone = items[col][index];
 
     try {
       const newDbItem = await api.items.create(reportId, {
         dept_id: deptId,
-        category: dstCol,
+        category: col,
         level: toClone.level,
         content: toClone.content,
       });
 
       setItems((prev) => {
-        const newDstItems = [...prev[dstCol], newDbItem];
-        const rp = newDstItems.map((it, i) => ({
+        const newColItems = [...prev[col]];
+        newColItems.splice(index + 1, 0, newDbItem);
+        
+        const rp = newColItems.map((it, i) => ({
           id: it.id,
           display_order: i,
-          category: dstCol as Category,
+          category: col as Category,
         }));
         api.items.reorder(rp).catch(console.error);
-        return { ...prev, [dstCol]: newDstItems };
+        
+        return { ...prev, [col]: newColItems };
       });
-      toast("success", "반대 컬럼으로 복사되었습니다.");
+      toast("success", "항목이 복사되었습니다.");
     } catch (error) {
       toast("error", "복사에 실패했습니다.");
     }
@@ -184,7 +194,7 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
       const srcItems = [...prev[srcCol]];
       const dstItems = srcCol === dstCol ? srcItems : [...prev[dstCol]];
 
-      const isClone = cloneModeRef.current && srcCol !== dstCol;
+      const isClone = cloneModeRef.current;
       let movedUpdated;
 
       if (isClone) {
@@ -294,6 +304,40 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
     }
   };
 
+  // ── PDF 파일 제출 ─────────────────────────────────────────────────────────────
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      toast("error", "PDF 파일만 업로드 가능합니다.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const fileName = `${reportId}_${deptId}_${Date.now()}.pdf`;
+      const { data, error } = await supabase.storage.from("reports").upload(fileName, file, { upsert: true });
+      if (error) throw error;
+      
+      const { data: publicData } = supabase.storage.from("reports").getPublicUrl(fileName);
+      
+      await api.reports.submit(reportId, deptId, {
+        submission_type: "file",
+        file_url: publicData.publicUrl
+      });
+      
+      setSubmitted(true);
+      setSubmissionType("file");
+      setFileUrl(publicData.publicUrl);
+      toast("success", "PDF 파일이 성공적으로 제출되었습니다.");
+    } catch (err: any) {
+      console.error(err);
+      toast("error", "파일 업로드 및 제출에 실패했습니다.");
+    } finally {
+      setSaving(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   // ── AI 요약 훅 ────────────────────────────────────────────────────────────────
   const handleAiSummarize = async () => {
     const allText = [...items.achievement, ...items.plan]
@@ -350,10 +394,28 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
               </button>
             </div>
           ) : (
-            <button className="btn-primary" onClick={handleSubmit} disabled={saving}>
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-              제출하기
-            </button>
+            <div className="flex items-center gap-2">
+              <input 
+                type="file" 
+                accept="application/pdf" 
+                className="hidden" 
+                ref={fileInputRef}
+                onChange={handlePdfUpload} 
+              />
+              <button 
+                className="btn-ghost !border-indigo-200 hover:!bg-indigo-50" 
+                onClick={() => fileInputRef.current?.click()} 
+                disabled={saving}
+                style={{ color: "var(--accent)" }}
+              >
+                {saving ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />}
+                PDF 업로드 제출
+              </button>
+              <button className="btn-primary" onClick={handleSubmit} disabled={saving}>
+                {saving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                홈페이지 직접 제출
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -366,7 +428,25 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
         </div>
       )}
 
-      {/* 2단 에디터 */}
+      {/* 2단 에디터 OR PDF 제출 화면 */}
+      {submissionType === "file" && submitted ? (
+        <div className="card p-10 flex flex-col items-center justify-center space-y-4 text-center mt-6">
+          <FileText size={48} style={{ color: "var(--accent)" }} />
+          <div>
+            <h3 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>PDF 파일 보관됨</h3>
+            <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+              이 부서는 PDF 파일 업로드 방식으로 제출을 완료했습니다.<br/>
+              문서를 다시 작성하거나 재업로드하려면 상단의 [제출 회수]를 진행해 주세요.
+            </p>
+          </div>
+          {fileUrl && (
+            <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="btn-primary mt-4 inline-flex items-center gap-2">
+              <FileText size={16} /> 원본 PDF 보기
+            </a>
+          )}
+        </div>
+      ) : (
+        <>
       <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <ColumnDropZone
@@ -399,8 +479,10 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
         Tab → 하위단계(ㅁ→ㅇ→-) &nbsp;·&nbsp;
         Shift+Tab → 상위단계 &nbsp;·&nbsp;
         드래그로 순서 변경 및 이동 &nbsp;·&nbsp;
-        <strong style={{ color: "var(--accent-light)" }}>항목 우클릭 또는 Ctrl+드래그</strong>하여 반대 컬럼 복사
+        <strong style={{ color: "var(--accent-light)" }}>항목 우클릭 또는 Ctrl+드래그</strong>하여 항목 복제 (아래열 추가)
       </p>
+        </>
+      )}
     </div>
   );
 }

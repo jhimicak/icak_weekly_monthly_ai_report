@@ -14,6 +14,8 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [pendingDept, setPendingDept] = useState<Department | null>(null);
 
   useEffect(() => {
     Promise.all([api.departments.list(), api.reports.list()])
@@ -112,20 +114,17 @@ export default function HomePage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {departments.map((dept) => (
-              <Link
+              <button
                 key={dept.id}
-                href={`/editor/${selectedReport}/${dept.id}`}
-                className="flex items-center justify-between p-4 rounded-xl border transition-all duration-150 hover:scale-[1.01]"
+                onClick={() => {
+                  setPendingDept(dept);
+                  setShowTypeModal(true);
+                }}
+                className="flex items-center justify-between p-4 rounded-xl border transition-all duration-150 hover:scale-[1.01] text-left w-full"
                 style={{
                   background: "var(--bg-card-hover)",
                   borderColor: "var(--border)",
                 }}
-                onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLAnchorElement).style.borderColor = "var(--accent)")
-                }
-                onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLAnchorElement).style.borderColor = "var(--border)")
-                }
               >
                 <div className="flex items-center gap-3">
                   <div
@@ -137,7 +136,7 @@ export default function HomePage() {
                   <span className="font-medium text-sm">{dept.name}</span>
                 </div>
                 <ArrowRight size={16} style={{ color: "var(--text-muted)" }} />
-              </Link>
+              </button>
             ))}
           </div>
         </div>
@@ -148,6 +147,51 @@ export default function HomePage() {
           onClose={() => setShowModal(false)} 
           onCreated={handleCreated} 
         />
+      )}
+
+      {showTypeModal && pendingDept && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="card w-full max-w-sm p-6 space-y-6 animate-in fade-in zoom-in duration-200">
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
+                작성 방식 선택
+              </h3>
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                {pendingDept.name}의 보고서 작성 방식을 선택하세요.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              <Link
+                href={`/editor/${selectedReport}/${pendingDept.id}`}
+                className="flex flex-col items-center justify-center p-5 rounded-xl border transition-all hover:bg-indigo-50/30 group"
+                style={{ borderColor: "var(--border)" }}
+              >
+                <span className="text-2xl mb-2">💻</span>
+                <span className="font-semibold text-sm">홈페이지에서 직접 입력</span>
+                <span className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>웹 에디터를 사용하여 작성</span>
+              </Link>
+
+              <Link
+                href={`/editor/${selectedReport}/${pendingDept.id}?fileMode=true`}
+                className="flex flex-col items-center justify-center p-5 rounded-xl border transition-all hover:bg-indigo-50/30 group"
+                style={{ borderColor: "var(--border)" }}
+              >
+                <span className="text-2xl mb-2">📄</span>
+                <span className="font-semibold text-sm">주간보고 파일 업로드</span>
+                <span className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>HWP를 PDF로 변환하여 업로드</span>
+              </Link>
+            </div>
+
+            <button
+              onClick={() => setShowTypeModal(false)}
+              className="w-full py-2 rounded-lg text-sm font-medium transition-colors hover:bg-black/5"
+              style={{ color: "var(--text-muted)" }}
+            >
+              취소
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
