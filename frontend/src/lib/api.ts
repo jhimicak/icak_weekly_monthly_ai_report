@@ -20,6 +20,8 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     const err = await res.json().catch(() => ({}));
     throw new Error(err?.detail ?? `HTTP ${res.status}`);
   }
+  // 204 No Content 는 body가 없으므로 json() 호출 금지
+  if (res.status === 204) return undefined as unknown as T;
   return res.json() as Promise<T>;
 }
 
