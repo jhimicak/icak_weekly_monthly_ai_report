@@ -68,7 +68,7 @@ export async function generateMergedPdf(aggregate: AggregateResult, containerId:
 
   // 4. 저장 및 다운로드
   const mergedPdfBytes = await finalMergedPdf.save();
-  const blob = new Blob([mergedPdfBytes], { type: "application/pdf" });
+  const blob = new Blob([mergedPdfBytes.buffer as ArrayBuffer], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
