@@ -7,7 +7,8 @@ import { Report, DeptStatus, AggregateResult } from "@/lib/types";
 import StatusBadge from "@/components/StatusBadge";
 import { toast } from "@/components/Toast";
 import {
-  ExternalLink, Building2, Plus, Trash2, Download
+  ExternalLink, Building2, Plus, Trash2, Download,
+  Loader2, RefreshCw, BarChart3
 } from "lucide-react";
 import { generateMergedPdf } from "@/lib/pdfBuilder";
 
