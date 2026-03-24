@@ -63,16 +63,39 @@ export default function AdminPage() {
   const handleAggregate = async () => {
     if (!selectedReport) return;
     setAggregating(true);
+    setAggregate(null);
     try {
       const data = await api.reports.aggregate(selectedReport);
       setAggregate(data);
       setShowAggregate(true);
-      toast("success", "전체 취합이 완료되었습니다.");
-    } catch (e: unknown) {
-      toast("error", e instanceof Error ? e.message : "취합 실패");
+      setTimeout(() => {
+        document.getElementById("aggregate-preview")?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    } catch {
+      toast.error("취합에 실패했습니다.");
     } finally {
       setAggregating(false);
     }
+  };
+
+  const calculateNextWeek = (dateStr: string) => {
+    const end = new Date(dateStr);
+    if (isNaN(end.getTime())) return "";
+    const nextStart = new Date(end);
+    nextStart.setDate(nextStart.getDate() + 1);
+    const nextEnd = new Date(nextStart);
+    nextEnd.setDate(nextEnd.getDate() + 6);
+    
+    const fmt = (d: Date) => {
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${m}.${dd}`;
+    };
+    return `${fmt(nextStart)}\n~\n${fmt(nextEnd)}`;
+  };
+
+  const handlePrint = () => {
+    window.print();
   };
 
   const handleAddDept = async (e: React.FormEvent) => {
@@ -319,22 +342,6 @@ export default function AdminPage() {
           )}
         </div>
       )}
-
-  const calculateNextWeek = (dateStr: string) => {
-    const end = new Date(dateStr);
-    if (isNaN(end.getTime())) return "";
-    const nextStart = new Date(end);
-    nextStart.setDate(nextStart.getDate() + 1);
-    const nextEnd = new Date(nextStart);
-    nextEnd.setDate(nextEnd.getDate() + 6);
-    
-    const fmt = (d: Date) => {
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      return `${m}.${dd}`;
-    };
-    return `${fmt(nextStart)}\n~\n${fmt(nextEnd)}`;
-  };
 
       {/* 취합 결과 미리보기 */}
       {showAggregate && aggregate && (
