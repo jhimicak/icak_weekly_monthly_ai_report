@@ -299,8 +299,10 @@ export default function AdminPage() {
                     <Trash2 size={14} />
                   </button>
                   <Link
-                    onClick={() => window.open(`/editor/${selectedReport}/${s.dept_id}`, "_blank")}
-                    className="p-1.5 rounded-lg hover:bg-black/5 transition-colors"
+                    href={`/editor/${selectedReport}/${s.dept_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1.5 flex items-center justify-center rounded-lg hover:bg-black/5 transition-colors"
                     style={{ color: "var(--text-muted)" }}
                     title="에디터 열기"
                   >
