@@ -1,0 +1,93 @@
+from datetime import date
+from pydantic import BaseModel, ConfigDict
+from models import ReportType, Category, SubmitStatus
+
+
+# ── Department ─────────────────────────────────────────────────────────────────
+
+class DepartmentCreate(BaseModel):
+    name: str
+
+
+class DepartmentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+
+
+# ── Report ─────────────────────────────────────────────────────────────────────
+
+class ReportCreate(BaseModel):
+    title: str
+    start_date: date
+    end_date: date
+    type: ReportType = ReportType.weekly
+
+
+class ReportRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    title: str
+    start_date: date
+    end_date: date
+    type: ReportType
+
+
+# ── ReportItem ─────────────────────────────────────────────────────────────────
+
+class ReportItemCreate(BaseModel):
+    dept_id: int
+    category: Category = Category.plan
+    level: int = 1
+    content: str = ""
+    display_order: int = 0
+
+
+class ReportItemUpdate(BaseModel):
+    category: Category | None = None
+    level: int | None = None
+    content: str | None = None
+    display_order: int | None = None
+
+
+class ReportItemRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    report_id: int
+    dept_id: int
+    category: Category
+    level: int
+    content: str
+    display_order: int
+
+
+# ── Reorder ────────────────────────────────────────────────────────────────────
+
+class ReorderPayload(BaseModel):
+    """드래그 앤 드롭 후 순서 저장 페이로드"""
+    # list of {id, display_order, category} dicts
+    items: list[dict]
+
+
+# ── DeptStatus ─────────────────────────────────────────────────────────────────
+
+class DeptStatusRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    report_id: int
+    dept_id: int
+    status: SubmitStatus
+    dept_name: str = ""
+    report_title: str = ""
+
+
+# ── AI ─────────────────────────────────────────────────────────────────────────
+
+class AIRequest(BaseModel):
+    report_id: int
+    dept_id: int
+    text: str
+
+
+class AIResponse(BaseModel):
+    summary: str

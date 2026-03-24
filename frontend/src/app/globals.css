@@ -1,0 +1,117 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #0f1117;
+  --bg-card: #1a1d27;
+  --bg-card-hover: #21253a;
+  --border: #2d3148;
+  --accent: #4f6ef7;
+  --accent-light: #7b97ff;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --text-primary: #f1f3ff;
+  --text-secondary: #8b92b8;
+  --text-muted: #555e8a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* DND dragging styles */
+.dnd-dragging {
+  box-shadow: 0 8px 32px rgba(79, 110, 247, 0.4);
+  border-color: var(--accent) !important;
+  background-color: var(--bg-card-hover) !important;
+}
+
+/* Level symbols */
+.level-1::before { content: 'ㅁ'; }
+.level-2::before { content: 'ㅇ'; }
+.level-3::before { content: '-'; }
+
+@layer components {
+  .card {
+    @apply rounded-xl border bg-[var(--bg-card)] border-[var(--border)];
+  }
+
+  .btn-primary {
+    @apply flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150;
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { 
+    background: var(--accent-light);
+    transform: translateY(-1px);
+  }
+
+  .btn-ghost {
+    @apply flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150;
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+  }
+
+  .status-badge-draft {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold;
+    background: rgba(239, 68, 68, 0.12);
+    color: var(--danger);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+  }
+
+  .status-badge-submitted {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold;
+    background: rgba(34, 197, 94, 0.12);
+    color: var(--success);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+  }
+}
+
+/* Print Styles (PDF Export) */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  nav, button, .print\:hidden {
+    display: none !important;
+  }
+  #aggregate-preview {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    background: #ffffff !important;
+  }
+  #aggregate-preview h2,
+  #aggregate-preview p,
+  #aggregate-preview span {
+    color: #000000 !important;
+  }
+  .page-break-before {
+    page-break-before: always;
+  }
+}
