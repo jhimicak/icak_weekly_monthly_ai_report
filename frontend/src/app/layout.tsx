@@ -16,7 +16,7 @@ export default function RootLayout({
     <html lang="ko">
       <body className="min-h-screen" style={{ background: "var(--bg-primary)" }}>
         <nav className="sticky top-0 z-50 px-6 py-3 flex items-center justify-between border-b"
-          style={{ background: "rgba(15,17,23,0.85)", backdropFilter: "blur(12px)", borderColor: "var(--border)" }}>
+          style={{ background: "rgba(255, 255, 255, 0.85)", backdropFilter: "blur(12px)", borderColor: "var(--border)" }}>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
               style={{ background: "var(--accent)" }}>
@@ -27,8 +27,8 @@ export default function RootLayout({
             </span>
           </div>
           <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-            <a href="/" className="hover:text-white transition-colors px-3 py-1 rounded-md hover:bg-white/5">홈</a>
-            <a href="/admin" className="hover:text-white transition-colors px-3 py-1 rounded-md hover:bg-white/5">관리자</a>
+            <a href="/" className="hover:text-[var(--accent)] transition-colors px-3 py-1 rounded-md hover:bg-black/5">홈</a>
+            <a href="/admin" className="hover:text-[var(--accent)] transition-colors px-3 py-1 rounded-md hover:bg-black/5">관리자</a>
           </div>
         </nav>
         <main className="px-4 py-6">{children}</main>

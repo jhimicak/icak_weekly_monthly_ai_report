@@ -4,18 +4,18 @@
 @tailwind utilities;
 
 :root {
-  --bg-primary: #0f1117;
-  --bg-card: #1a1d27;
-  --bg-card-hover: #21253a;
-  --border: #2d3148;
-  --accent: #4f6ef7;
-  --accent-light: #7b97ff;
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --text-primary: #f1f3ff;
-  --text-secondary: #8b92b8;
-  --text-muted: #555e8a;
+  --bg-primary: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --border: #e2e8f0;
+  --accent: #4f46e5; /* 세련된 인디고 블루 */
+  --accent-light: #6366f1;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --text-primary: #0f172a; /* 텍스트는 완전 블랙이 아닌 슬레이트 아주 진한 색 */
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
 }
 
 * {
@@ -50,6 +50,7 @@ body {
 @layer components {
   .card {
     @apply rounded-xl border bg-[var(--bg-card)] border-[var(--border)];
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
   }
 
   .btn-primary {
@@ -113,5 +114,8 @@ body {
   }
   .page-break-before {
     page-break-before: always;
+  }
+  .page-break-after {
+    page-break-after: always;
   }
 }

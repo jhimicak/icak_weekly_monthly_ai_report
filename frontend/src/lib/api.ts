@@ -97,6 +97,8 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ items }),
       }),
+    deleteAll: (reportId: number, deptId: number) =>
+      req<void>(`/reports/${reportId}/items/${deptId}`, { method: "DELETE" }),
     rollover: (reportId: number, deptId: number) =>
       req<ReportItem[]>(`/reports/${reportId}/rollover/${deptId}`, {
         method: "POST",

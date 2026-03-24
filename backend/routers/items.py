@@ -93,6 +93,25 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
     db.commit()
 
 
+# ── 부서 리포트 전체 삭제 (초기화) ──────────────────────────────────────────
+
+@router.delete("/api/reports/{report_id}/items/{dept_id}", status_code=204)
+def delete_department_items(report_id: int, dept_id: int, db: Session = Depends(get_db)):
+    from models import DeptStatus, SubmitStatus
+    
+    _get_report_or_404(report_id, db)
+    
+    # 1. 해당 부서의 모든 항목 삭제
+    db.query(ReportItem).filter_by(report_id=report_id, dept_id=dept_id).delete()
+    
+    # 2. 상태를 pending으로 롤백
+    status = db.query(DeptStatus).filter_by(report_id=report_id, dept_id=dept_id).first()
+    if status:
+        status.status = SubmitStatus.pending
+    
+    db.commit()
+
+
 # ── 순서 일괄 업데이트 (드래그 앤 드롭 후) ──────────────────────────────────────
 
 @router.post("/api/items/reorder", status_code=200)

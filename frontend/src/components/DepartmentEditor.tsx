@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { DragDropContext, DropResult } from "@hello-pangea/dnd";
 import {
-  RotateCcw, Send, CheckCircle, Loader2, Sparkles
+  RotateCcw, Send, CheckCircle, Loader2, Sparkles, Unlock
 } from "lucide-react";
 import { ReportItem, Category, Department, Report } from "@/lib/types";
 import { api } from "@/lib/api";
+import { toast } from "@/components/Toast";
 import ColumnDropZone from "@/components/ColumnDropZone";
 
 interface Props {
@@ -29,6 +30,28 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
   const [rolling, setRolling] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [isCtrlPressed, setIsCtrlPressed] = useState(false);
+
+  // ── Ctrl 키 이벤트 감지 ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Control") setIsCtrlPressed(true);
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "Control") setIsCtrlPressed(false);
+      // 포커스를 잃거나 알림창이 뜰 때 Ctrl이 계속 눌려있는 것으로 인식될 수 있으므로 예외처리
+    };
+    const handleBlur = () => setIsCtrlPressed(false);
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, []);
 
   // ── 초기 데이터 로드 ──────────────────────────────────────────────────────────
   const loadItems = useCallback(async () => {
@@ -99,7 +122,7 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
 
   // ── 드래그 앤 드롭 ────────────────────────────────────────────────────────────
   const onDragEnd = async (result: DropResult) => {
-    const { source, destination, draggableId } = result;
+    const { source, destination } = result;
     if (!destination) return;
     if (
       source.droppableId === destination.droppableId &&
@@ -117,9 +140,20 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
       const srcItems = [...prev[srcCol]];
       const dstItems = srcCol === dstCol ? srcItems : [...prev[dstCol]];
 
-      const [moved] = srcItems.splice(source.index, 1);
-      const movedUpdated = { ...moved, category: dstCol };
-      dstItems.splice(destination.index, 0, movedUpdated);
+      const isClone = isCtrlPressed && srcCol !== dstCol;
+      let movedUpdated;
+
+      if (isClone) {
+        // 복제 (임시 ID 사용)
+        const toClone = srcItems[source.index];
+        movedUpdated = { ...toClone, id: Date.now() + Math.random(), category: dstCol };
+        dstItems.splice(destination.index, 0, movedUpdated);
+      } else {
+        // 일반 이동
+        const [moved] = srcItems.splice(source.index, 1);
+        movedUpdated = { ...moved, category: dstCol };
+        dstItems.splice(destination.index, 0, movedUpdated);
+      }
 
       const newState: ItemMap = {
         achievement: srcCol === "achievement" ? srcItems : prev.achievement,
@@ -130,20 +164,42 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
       } else {
         newState[srcCol] = dstItems;
       }
-      // 순서 즉시 저장
-      const reorderPayload = [
-        ...newState.achievement.map((it, i) => ({
-          id: it.id,
-          display_order: i,
-          category: "achievement" as Category,
-        })),
-        ...newState.plan.map((it, i) => ({
-          id: it.id,
-          display_order: i,
-          category: "plan" as Category,
-        })),
-      ];
-      api.items.reorder(reorderPayload).catch(console.error);
+
+      // 서버 동기화 로직
+      if (isClone) {
+        api.items.create(reportId, {
+          dept_id: deptId,
+          category: dstCol,
+          level: movedUpdated.level,
+          content: movedUpdated.content,
+        }).then((newDbItem) => {
+          setItems((p2) => ({
+            ...p2,
+            [dstCol]: p2[dstCol].map((it) => it.id === movedUpdated.id ? { ...it, id: newDbItem.id } : it)
+          }));
+          const rp = newState[dstCol].map((it, i) => ({
+            id: it.id === movedUpdated.id ? newDbItem.id : it.id,
+            display_order: i,
+            category: dstCol as Category,
+          }));
+          api.items.reorder(rp).catch(console.error);
+        });
+      } else {
+        const reorderPayload = [
+          ...newState.achievement.map((it, i) => ({
+            id: it.id,
+            display_order: i,
+            category: "achievement" as Category,
+          })),
+          ...newState.plan.map((it, i) => ({
+            id: it.id,
+            display_order: i,
+            category: "plan" as Category,
+          })),
+        ];
+        api.items.reorder(reorderPayload).catch(console.error);
+      }
+
       return newState;
     });
   };
@@ -170,6 +226,24 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
     try {
       await api.reports.submit(reportId, deptId);
       setSubmitted(true);
+      toast("success", "보고서가 제출되었습니다.");
+    } catch (e: unknown) {
+      toast("error", "제출 실패");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── 회수 ─────────────────────────────────────────────────────────────────────
+  const handleRecall = async () => {
+    if (!confirm("정말 제출을 회수하시겠습니까?\n회수 시 작성 중 상태로 돌아갑니다.")) return;
+    setSaving(true);
+    try {
+      await api.reports.recall(reportId, deptId);
+      setSubmitted(false);
+      toast("success", "제출이 회수되었습니다.");
+    } catch (e: unknown) {
+      toast("error", "회수 실패");
     } finally {
       setSaving(false);
     }
@@ -216,10 +290,20 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
             AI 요약
           </button>
           {submitted ? (
-            <span className="status-badge-submitted">
-              <CheckCircle size={12} />
-              제출완료
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="status-badge-submitted">
+                <CheckCircle size={12} />
+                제출완료
+              </span>
+              <button 
+                className="btn-ghost !text-[var(--danger)] hover:!bg-red-500/10 border border-transparent hover:border-red-200" 
+                onClick={handleRecall} 
+                disabled={saving}
+              >
+                {saving ? <Loader2 size={14} className="animate-spin" /> : <Unlock size={14} />}
+                제출 회수
+              </button>
+            </div>
           ) : (
             <button className="btn-primary" onClick={handleSubmit} disabled={saving}>
               {saving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
@@ -267,7 +351,8 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
       <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>
         Tab → 하위단계(ㅁ→ㅇ→-) &nbsp;·&nbsp;
         Shift+Tab → 상위단계 &nbsp;·&nbsp;
-        드래그로 순서 변경 및 컬럼 간 이동 가능
+        드래그로 순서 변경 및 컬럼 간 이동 가능 &nbsp;·&nbsp;
+        <strong>Ctrl + 드래그</strong>로 복사
       </p>
     </div>
   );

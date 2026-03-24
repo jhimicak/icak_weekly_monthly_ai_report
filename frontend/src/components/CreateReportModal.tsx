@@ -82,7 +82,7 @@ export default function CreateReportModal({ onCreated, onClose }: Props) {
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-black/5 transition-colors"
             style={{ color: "var(--text-muted)" }}
           >
             <X size={16} />

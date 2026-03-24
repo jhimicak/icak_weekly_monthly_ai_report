@@ -11,11 +11,12 @@ import {
   ExternalLink, Building2, Plus, Trash2
 } from "lucide-react";
 
-const LEVEL_SYMBOL: Record<number, string> = { 1: "ㅁ", 2: "ㅇ", 3: "-" };
+const LEVEL_SYMBOL: Record<number, string> = { 1: "□", 2: "ㅇ", 3: "-", 4: "·" };
 const LEVEL_INDENT: Record<number, string> = {
   1: "ml-0 font-semibold",
-  2: "ml-6",
-  3: "ml-12 text-sm",
+  2: "ml-4",
+  3: "ml-8 text-sm",
+  4: "ml-12 text-sm",
 };
 
 export default function AdminPage() {
@@ -101,6 +102,18 @@ export default function AdminPage() {
     }
   };
 
+  const handleDeleteSubmission = async (deptId: number, deptName: string) => {
+    if (!selectedReport) return;
+    if (!confirm(`'${deptName}' 부서의 전체 작성 내역을 삭제(초기화)하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+    try {
+      await api.items.deleteAll(selectedReport, deptId);
+      toast("success", "제출 내역이 초기화되었습니다.");
+      loadStatuses();
+    } catch (e: unknown) {
+      toast("error", "초기화 실패");
+    }
+  };
+
   const handlePrint = () => window.print();
 
   const submittedCount = statuses.filter((s) => s.status === "submitted").length;
@@ -167,7 +180,7 @@ export default function AdminPage() {
             {departments.map((d) => (
               <div
                 key={d.id}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-[var(--bg-main)] text-sm border-[var(--border)]"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-[var(--bg-primary)] text-sm border-[var(--border)]"
               >
                 <span>{d.name}</span>
                 <button
@@ -258,14 +271,23 @@ export default function AdminPage() {
             <div className="flex items-center gap-2">
               <StatusBadge status={s.status} />
               {selectedReport && (
-                <Link
-                  href={`/editor/${selectedReport}/${s.dept_id}`}
-                  className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
-                  style={{ color: "var(--text-muted)" }}
-                  title="에디터 열기"
-                >
-                  <ExternalLink size={14} />
-                </Link>
+                <>
+                  <button
+                    onClick={() => handleDeleteSubmission(s.dept_id, s.dept_name)}
+                    className="p-1.5 rounded-lg opacity-60 hover:opacity-100 hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                    title="제출 내역 초기화"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                  <Link
+                    onClick={() => window.open(`/editor/${selectedReport}/${s.dept_id}`, "_blank")}
+                    className="p-1.5 rounded-lg hover:bg-black/5 transition-colors"
+                    style={{ color: "var(--text-muted)" }}
+                    title="에디터 열기"
+                  >
+                    <ExternalLink size={14} />
+                  </Link>
+                </>
               )}
             </div>
           </div>
@@ -298,82 +320,104 @@ export default function AdminPage() {
         </div>
       )}
 
+  const calculateNextWeek = (dateStr: string) => {
+    const end = new Date(dateStr);
+    if (isNaN(end.getTime())) return "";
+    const nextStart = new Date(end);
+    nextStart.setDate(nextStart.getDate() + 1);
+    const nextEnd = new Date(nextStart);
+    nextEnd.setDate(nextEnd.getDate() + 6);
+    
+    const fmt = (d: Date) => {
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${m}.${dd}`;
+    };
+    return `${fmt(nextStart)}\n~\n${fmt(nextEnd)}`;
+  };
+
       {/* 취합 결과 미리보기 */}
       {showAggregate && aggregate && (
         <div
           id="aggregate-preview"
-          className="card p-6 space-y-8 print:border-none print:shadow-none"
+          className="bg-white text-black p-8 mx-auto print:p-0 print:border-none print:shadow-none"
         >
-          <div className="space-y-1 print:block">
-            <h2 className="text-xl font-bold text-center" style={{ color: "var(--text-primary)" }}>
-              {aggregate.report.title}
-            </h2>
-            <p className="text-center text-sm" style={{ color: "var(--text-muted)" }}>
-              {aggregate.report.start_date} ~ {aggregate.report.end_date}
+          {/* 표지 */}
+          <div className="flex flex-col items-center justify-center min-h-[1050px] print:min-h-[297mm] page-break-after border border-gray-800 p-8 m-4">
+            <h1 className="text-5xl font-extrabold tracking-[1em] mb-24 text-center mt-32" style={{ fontFamily: "serif" }}>
+              주 간 회 의 자 료
+            </h1>
+            <p className="text-2xl font-bold mb-32 tracking-widest text-center">
+              {aggregate.report.start_date.replace(/-/g, ".")} 
             </p>
+            <div className="mt-32 text-center pb-12">
+              <h2 className="text-4xl font-black tracking-widest text-[#005a3c]">해외건설협회</h2>
+              <p className="text-sm font-bold mt-2 text-gray-600">ICAK</p>
+            </div>
           </div>
 
+          {/* 부서별 보고서 양식 */}
           {aggregate.sections.map((section) => (
-            <div key={section.dept.id} className="space-y-3">
-              {/* 부서 구분 헤더 */}
-              <div
-                className="flex items-center gap-3 pb-2 border-b"
-                style={{ borderColor: "var(--border)" }}
-              >
-                <span
-                  className="text-base font-bold"
-                  style={{ color: "var(--accent-light)" }}
-                >
-                  ▶ {section.dept.name}
-                </span>
+            <div key={section.dept.id} className="relative mb-12 print:mb-0 print:min-h-[200mm] page-break-after pt-8">
+              
+              <div className="text-center mb-6">
+                <h2 className="text-3xl font-bold tracking-[0.5em] underline underline-offset-8 decoration-2 inline-block">
+                  주 간 업 무 현 황 보 고
+                </h2>
+              </div>
+              <div className="text-right mb-2 font-bold text-sm">
+                부서명: {section.dept.name}
               </div>
 
-              {/* 실적 */}
-              {(() => {
-                const achievements = section.items.filter((i) => i.category === "achievement");
-                return achievements.length > 0 ? (
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-semibold uppercase tracking-wider"
-                      style={{ color: "var(--success)" }}>
-                      추진 실적
-                    </p>
-                    {achievements.map((item) => (
-                      <div key={item.id} className={`flex gap-2 text-sm ${LEVEL_INDENT[item.level]}`}>
-                        <span style={{ color: "var(--accent)", minWidth: 16 }}>
-                          {LEVEL_SYMBOL[item.level]}
-                        </span>
-                        <span style={{ color: "var(--text-primary)" }}>{item.content}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : null;
-              })()}
-
-              {/* 계획 */}
-              {(() => {
-                const plans = section.items.filter((i) => i.category === "plan");
-                return plans.length > 0 ? (
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-semibold uppercase tracking-wider"
-                      style={{ color: "var(--accent-light)" }}>
-                      추진 계획
-                    </p>
-                    {plans.map((item) => (
-                      <div key={item.id} className={`flex gap-2 text-sm ${LEVEL_INDENT[item.level]}`}>
-                        <span style={{ color: "var(--accent)", minWidth: 16 }}>
-                          {LEVEL_SYMBOL[item.level]}
-                        </span>
-                        <span style={{ color: "var(--text-primary)" }}>{item.content}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : null;
-              })()}
+              <table className="w-full border-collapse border border-gray-800 text-sm">
+                <colgroup>
+                  <col className="w-[8%]" />
+                  <col className="w-[42%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[42%]" />
+                </colgroup>
+                <thead>
+                  <tr className="bg-gray-100 text-center font-bold">
+                    <th className="border border-gray-800 py-2">기 간</th>
+                    <th className="border border-gray-800 py-2">추 진 실 적</th>
+                    <th className="border border-gray-800 py-2">기 간</th>
+                    <th className="border border-gray-800 py-2">추 진 계 획</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border border-gray-800 p-2 align-top text-center text-xs whitespace-pre-wrap">
+                      {aggregate.report.start_date.slice(5).replace("-", ".")}
+                      <br/>~<br/>
+                      {aggregate.report.end_date.slice(5).replace("-", ".")}
+                    </td>
+                    <td className="border border-gray-800 p-4 align-top leading-relaxed">
+                      {section.items.filter(i => i.category === "achievement").map(item => (
+                        <div key={item.id} className={`flex gap-2 text-sm ${LEVEL_INDENT[item.level] || 'ml-0'} mb-1`}>
+                          <span className="shrink-0">{LEVEL_SYMBOL[item.level] || '·'}</span>
+                          <span className="whitespace-pre-wrap leading-tight text-gray-900">{item.content}</span>
+                        </div>
+                      ))}
+                    </td>
+                    <td className="border border-gray-800 p-2 align-top text-center text-xs whitespace-pre-wrap">
+                      {calculateNextWeek(aggregate.report.end_date)}
+                    </td>
+                    <td className="border border-gray-800 p-4 align-top leading-relaxed">
+                      {section.items.filter(i => i.category === "plan").map(item => (
+                        <div key={item.id} className={`flex gap-2 text-sm ${LEVEL_INDENT[item.level] || 'ml-0'} mb-1`}>
+                          <span className="shrink-0">{LEVEL_SYMBOL[item.level] || '·'}</span>
+                          <span className="whitespace-pre-wrap leading-tight text-gray-900">{item.content}</span>
+                        </div>
+                      ))}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           ))}
 
           {aggregate.sections.length === 0 && (
-            <p className="text-center py-8" style={{ color: "var(--text-muted)" }}>
+            <p className="text-center py-8 text-gray-500">
               제출 완료된 부서가 없습니다.
             </p>
           )}
