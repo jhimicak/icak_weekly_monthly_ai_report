@@ -98,17 +98,23 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
 @router.delete("/api/reports/{report_id}/items/{dept_id}", status_code=204)
 def delete_department_items(report_id: int, dept_id: int, db: Session = Depends(get_db)):
     from models import DeptStatus, SubmitStatus
-    
+
     _get_report_or_404(report_id, db)
-    
-    # 1. 해당 부서의 모든 항목 삭제
-    db.query(ReportItem).filter_by(report_id=report_id, dept_id=dept_id).delete()
-    
+
+    # 1. 해당 부서의 모든 항목 삭제 (synchronize_session=False 로 세션 충돌 방지)
+    db.query(ReportItem).filter(
+        ReportItem.report_id == report_id,
+        ReportItem.dept_id == dept_id,
+    ).delete(synchronize_session=False)
+
     # 2. 상태를 pending으로 롤백
-    status = db.query(DeptStatus).filter_by(report_id=report_id, dept_id=dept_id).first()
+    status = db.query(DeptStatus).filter(
+        DeptStatus.report_id == report_id,
+        DeptStatus.dept_id == dept_id,
+    ).first()
     if status:
         status.status = SubmitStatus.pending
-    
+
     db.commit()
 
 
