@@ -8,7 +8,8 @@ import StatusBadge from "@/components/StatusBadge";
 import { toast } from "@/components/Toast";
 import {
   ExternalLink, Building2, Plus, Trash2, Download,
-  Loader2, RefreshCw, BarChart3
+  Loader2, RefreshCw, BarChart3,
+  ChevronUp, ChevronDown, FileDown
 } from "lucide-react";
 import { generateMergedPdf } from "@/lib/pdfBuilder";
 
