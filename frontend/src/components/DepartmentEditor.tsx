@@ -30,18 +30,20 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
   const [rolling, setRolling] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [isCtrlPressed, setIsCtrlPressed] = useState(false);
+  // Ctrl 키 상태를 ref로 관리 (re-render 없이 즉각 반영)
+  const isCtrlRef = useRef(false);
+  // 드래그 시작 시점의 복제 의도를 잠금 (드래그 중 Ctrl 상태 변화 무관)
+  const cloneModeRef = useRef(false);
 
   // ── Ctrl 키 이벤트 감지 ────────────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Control") setIsCtrlPressed(true);
+      if (e.key === "Control" || e.key === "Meta") isCtrlRef.current = true;
     };
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === "Control") setIsCtrlPressed(false);
-      // 포커스를 잃거나 알림창이 뜰 때 Ctrl이 계속 눌려있는 것으로 인식될 수 있으므로 예외처리
+      if (e.key === "Control" || e.key === "Meta") isCtrlRef.current = false;
     };
-    const handleBlur = () => setIsCtrlPressed(false);
+    const handleBlur = () => { isCtrlRef.current = false; };
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
@@ -121,13 +123,18 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
   };
 
   // ── 드래그 앤 드롭 ────────────────────────────────────────────────────────────
+  // 드래그 시작 시 Ctrl 상태를 잠금 (dnd가 pointer events를 가로채기 전에 캡처)
+  const onDragStart = () => {
+    cloneModeRef.current = isCtrlRef.current;
+  };
+
   const onDragEnd = async (result: DropResult) => {
     const { source, destination } = result;
     if (!destination) return;
     if (
       source.droppableId === destination.droppableId &&
       source.index === destination.index
-    ) return;
+    ) { cloneModeRef.current = false; return; }
 
     const srcCol = source.droppableId.startsWith("achievement")
       ? "achievement"
@@ -140,7 +147,7 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
       const srcItems = [...prev[srcCol]];
       const dstItems = srcCol === dstCol ? srcItems : [...prev[dstCol]];
 
-      const isClone = isCtrlPressed && srcCol !== dstCol;
+      const isClone = cloneModeRef.current && srcCol !== dstCol;
       let movedUpdated;
 
       if (isClone) {
@@ -200,6 +207,7 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
         api.items.reorder(reorderPayload).catch(console.error);
       }
 
+      cloneModeRef.current = false;
       return newState;
     });
   };
@@ -322,7 +330,7 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
       )}
 
       {/* 2단 에디터 */}
-      <DragDropContext onDragEnd={onDragEnd}>
+      <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <ColumnDropZone
             droppableId={`achievement-${deptId}`}
@@ -351,8 +359,8 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
       <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>
         Tab → 하위단계(ㅁ→ㅇ→-) &nbsp;·&nbsp;
         Shift+Tab → 상위단계 &nbsp;·&nbsp;
-        드래그로 순서 변경 및 컬럼 간 이동 가능 &nbsp;·&nbsp;
-        <strong>Ctrl + 드래그</strong>로 복사
+        드래그로 순서 변경 및 컬럼 간 이동 &nbsp;·&nbsp;
+        <strong style={{ color: "var(--accent-light)" }}>Ctrl 누른 채 반대 컬럼으로 드래그</strong>하면 복사
       </p>
     </div>
   );
