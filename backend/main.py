@@ -12,11 +12,11 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# CORS - Next.js 개발 서버 허용
+# CORS - Next.js 각종 배포 도메인(Vercel 등) 접속 허용
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

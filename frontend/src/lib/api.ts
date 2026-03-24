@@ -7,8 +7,9 @@ import {
   Category,
 } from "./types";
 
-// Vercel 등에 배포했을 때 렌더(Render) 백엔드 주소를 직접 가리키도록 환경 변수 적용
-const BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
+// Vercel 등에 배포했을 때 렌더(Render) 백엔드 주소에 자동으로 /api 를 붙여서 라우팅 오류 방지
+const url = process.env.NEXT_PUBLIC_API_URL;
+const BASE = url ? (url.endsWith('/api') ? url : `${url}/api`) : "/api";
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
