@@ -42,17 +42,30 @@ async def convert_hwp_to_pdf(file: UploadFile = File(...)):
 
     # 임시 디렉터리에 파일 저장 후 변환
     with tempfile.TemporaryDirectory() as tmp_dir:
-        input_path = os.path.join(tmp_dir, filename)
+        # 파일명 인코딩/띄어쓰기 문제를 방지하기 위해 심플한 이름으로 내부 저장
+        safe_input_name = "input.hwp"
+        input_path = os.path.join(tmp_dir, safe_input_name)
 
         # 업로드된 파일 저장
         with open(input_path, "wb") as f:
             content = await file.read()
             f.write(content)
 
-        # LibreOffice로 PDF 변환
+        # LibreOffice로 PDF 변환 (안정성을 위한 추가 플래그 적용)
         lo_cmd = _get_libreoffice_cmd()
         result = subprocess.run(
-            [lo_cmd, "--headless", "--convert-to", "pdf", "--outdir", tmp_dir, input_path],
+            [
+                lo_cmd, 
+                "-env:UserInstallation=file:///tmp/libreoffice",
+                "--headless", 
+                "--nologo",
+                "--nofirststartwizard",
+                "--convert-to", 
+                "pdf", 
+                "--outdir", 
+                tmp_dir, 
+                input_path
+            ],
             capture_output=True,
             text=True,
             timeout=60,  # 최대 60초
@@ -61,18 +74,20 @@ async def convert_hwp_to_pdf(file: UploadFile = File(...)):
         if result.returncode != 0:
             raise HTTPException(
                 status_code=500,
-                detail=f"PDF 변환 실패: {result.stderr or result.stdout}",
+                detail=f"PDF 변환 실패 상태코드 반환: {result.stderr or result.stdout}",
             )
 
         # 변환된 PDF 경로
-        pdf_filename = os.path.splitext(filename)[0] + ".pdf"
-        pdf_path = os.path.join(tmp_dir, pdf_filename)
+        pdf_path = os.path.join(tmp_dir, "input.pdf")
 
         if not os.path.exists(pdf_path):
-            raise HTTPException(status_code=500, detail="PDF 변환 후 파일을 찾을 수 없습니다.")
+            # 왜 실패했는지 로그 출력 리턴
+            err_msg = f"PDF 생성 안됨. (out: {result.stdout} / err: {result.stderr})"
+            raise HTTPException(status_code=500, detail=err_msg)
 
         # 변환된 PDF를 응답으로 반환하기 위해 별도 경로로 복사
-        # (TemporaryDirectory가 닫히기 전에 FileResponse가 읽어야 함)
+        # (원래 업로드된 파일명 형식 유지)
+        pdf_filename = os.path.splitext(filename)[0] + ".pdf"
         output_path = os.path.join(tempfile.gettempdir(), f"converted_{os.urandom(8).hex()}.pdf")
         shutil.copy2(pdf_path, output_path)
 
