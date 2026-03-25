@@ -419,17 +419,20 @@ export default function AdminPage() {
           id="aggregate-preview"
           className="bg-white text-black p-8 mx-auto print:p-0 print:border-none print:shadow-none"
         >
-          {/* 표지 */}
-          <div className="flex flex-col items-center justify-center min-h-[1050px] print:min-h-[297mm] page-break-after border border-gray-800 p-8 m-4">
-            <h1 className="text-5xl font-extrabold tracking-[1em] mb-24 text-center mt-32" style={{ fontFamily: "serif" }}>
+          {/* 표지 (가로형) */}
+          <div className="flex flex-col items-center justify-center w-full aspect-[1.414] max-w-[1050px] mx-auto page-break-after border-2 border-gray-800 p-8 mb-12 bg-white print:w-[297mm] print:h-[210mm] print:border-2">
+            <h1 
+              className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-[0.5em] md:tracking-[0.8em] mb-12 text-center whitespace-nowrap pl-[0.5em] md:pl-[0.8em]" 
+              style={{ fontFamily: "'Malgun Gothic', serif" }}
+            >
               주 간 회 의 자 료
             </h1>
-            <p className="text-2xl font-bold mb-32 tracking-widest text-center">
+            <p className="text-2xl sm:text-3xl md:text-4xl font-bold mb-20 tracking-widest text-center">
               {aggregate.report.start_date.replace(/-/g, ".")} 
             </p>
-            <div className="mt-32 text-center pb-12">
-              <h2 className="text-4xl font-black tracking-widest text-[#005a3c]">해외건설협회</h2>
-              <p className="text-sm font-bold mt-2 text-gray-600">ICAK</p>
+            <div className="mt-16 text-center pb-4 border-t-2 border-gray-800 pt-10 w-64 md:w-80">
+              <h2 className="text-3xl sm:text-4xl font-black tracking-[0.2em] md:tracking-widest text-[#005a3c]">해외건설협회</h2>
+              <p className="text-sm md:text-base font-bold mt-3 text-gray-500 tracking-widest uppercase">ICAK</p>
             </div>
           </div>
 
