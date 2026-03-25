@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from database import Base, engine
-from routers import departments, reports, items, ai
+from routers import departments, reports, items, ai, convert
 
 # DB 테이블 자동 생성
 Base.metadata.create_all(bind=engine)
@@ -38,6 +38,7 @@ app.include_router(departments.router)
 app.include_router(reports.router)
 app.include_router(items.router)
 app.include_router(ai.router)
+app.include_router(convert.router)
 
 
 @app.get("/")

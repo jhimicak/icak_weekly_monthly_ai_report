@@ -305,37 +305,56 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
   };
 
   // ── PDF 파일 제출 ─────────────────────────────────────────────────────────────
-  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.type !== "application/pdf") {
-      toast("error", "PDF 파일만 업로드 가능합니다.");
+
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    const isHwp = ext === "hwp" || ext === "hwpx";
+    const isPdf = file.type === "application/pdf" || ext === "pdf";
+
+    if (!isHwp && !isPdf) {
+      toast("error", "HWP 또는 PDF 파일만 업로드 가능합니다.");
       return;
     }
     if (!supabase) {
       toast("error", "Supabase 설정이 필요합니다. 관리자에게 문의해주세요. (NEXT_PUBLIC_SUPABASE_URL 미설정)");
       return;
     }
+
     setSaving(true);
     try {
+      let uploadFile: File | Blob = file;
+
+      if (isHwp) {
+        // HWP → PDF 변환 (백엔드 LibreOffice)
+        toast("success", "HWP 파일을 PDF로 변환 중...");
+        const pdfBlob = await api.convert.hwp2pdf(file);
+        uploadFile = pdfBlob;
+      }
+
       const fileName = `${reportId}_${deptId}_${Date.now()}.pdf`;
-      const { error } = await supabase.storage.from("reports").upload(fileName, file, { upsert: true });
+      const { error } = await supabase.storage.from("reports").upload(fileName, uploadFile, {
+        upsert: true,
+        contentType: "application/pdf",
+      });
       if (error) throw error;
-      
+
       const { data: publicData } = supabase.storage.from("reports").getPublicUrl(fileName);
-      
+
       await api.reports.submit(reportId, deptId, {
         submission_type: "file",
-        file_url: publicData.publicUrl
+        file_url: publicData.publicUrl,
       });
-      
+
       setSubmitted(true);
       setSubmissionType("file");
       setFileUrl(publicData.publicUrl);
-      toast("success", "PDF 파일이 성공적으로 제출되었습니다.");
+      toast("success", isHwp ? "HWP가 PDF로 변환되어 제출되었습니다." : "PDF 파일이 성공적으로 제출되었습니다.");
     } catch (err: unknown) {
       console.error(err);
-      toast("error", "파일 업로드 및 제출에 실패했습니다.");
+      const msg = err instanceof Error ? err.message : "파일 업로드 및 제출에 실패했습니다.";
+      toast("error", msg);
     } finally {
       setSaving(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -402,10 +421,10 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
             <div className="flex items-center gap-2">
               <input 
                 type="file" 
-                accept="application/pdf" 
+                accept=".hwp,.hwpx,application/pdf" 
                 className="hidden" 
                 ref={fileInputRef}
-                onChange={handlePdfUpload} 
+                onChange={handleFileUpload} 
               />
               <button 
                 className="btn-ghost !border-indigo-200 hover:!bg-indigo-50" 
@@ -414,7 +433,7 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
                 style={{ color: "var(--accent)" }}
               >
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />}
-                PDF 업로드 제출
+                HWP / PDF 업로드 제출
               </button>
               <button className="btn-primary" onClick={handleSubmit} disabled={saving}>
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}

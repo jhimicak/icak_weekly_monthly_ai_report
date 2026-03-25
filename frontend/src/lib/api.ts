@@ -118,4 +118,25 @@ export const api = {
       });
     },
   },
+
+  // ── Convert ───────────────────────────────────────────────────────────────────
+  convert: {
+    /** HWP 파일을 백엔드에서 PDF로 변환 후 PDF Blob 반환 */
+    hwp2pdf: async (file: File): Promise<Blob> => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+      const base = apiUrl ? (apiUrl.endsWith("/api") ? apiUrl : `${apiUrl}/api`) : "/api";
+      const res = await fetch(`${base}/convert/hwp2pdf`, {
+        method: "POST",
+        body: formData,
+        // Content-Type을 설정하지 않아야 multipart/form-data 자동 처리됨
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.detail ?? `변환 실패: HTTP ${res.status}`);
+      }
+      return res.blob();
+    },
+  },
 };
