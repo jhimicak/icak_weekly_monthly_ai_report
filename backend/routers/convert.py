@@ -42,13 +42,14 @@ async def convert_hwp_to_pdf(file: UploadFile = File(...)):
 
     # 임시 디렉터리에 파일 저장 후 변환
     with tempfile.TemporaryDirectory() as tmp_dir:
-        # 파일명 인코딩/띄어쓰기 문제를 방지하기 위해 심플한 이름으로 내부 저장
-        safe_input_name = "input.hwp"
+        # 파일 형식(.hwp, .hwpx) 확장자 그대로 유지
+        safe_input_name = f"input{ext}"
         input_path = os.path.join(tmp_dir, safe_input_name)
 
         # 업로드된 파일 저장
+        content = await file.read()
+        file_size = len(content)
         with open(input_path, "wb") as f:
-            content = await file.read()
             f.write(content)
 
         # LibreOffice로 PDF 변환 (안정성을 위한 추가 플래그 적용)
@@ -74,7 +75,7 @@ async def convert_hwp_to_pdf(file: UploadFile = File(...)):
         if result.returncode != 0:
             raise HTTPException(
                 status_code=500,
-                detail=f"PDF 변환 실패 상태코드 반환: {result.stderr or result.stdout}",
+                detail=f"PDF 변환 실패 상태코드 반환 (크기: {file_size} bytes): {result.stderr or result.stdout}",
             )
 
         # 변환된 PDF 경로
@@ -82,7 +83,7 @@ async def convert_hwp_to_pdf(file: UploadFile = File(...)):
 
         if not os.path.exists(pdf_path):
             # 왜 실패했는지 로그 출력 리턴
-            err_msg = f"PDF 생성 안됨. (out: {result.stdout} / err: {result.stderr})"
+            err_msg = f"PDF 생성 안됨. (파일크기: {file_size} bytes) (out: {result.stdout} / err: {result.stderr})"
             raise HTTPException(status_code=500, detail=err_msg)
 
         # 변환된 PDF를 응답으로 반환하기 위해 별도 경로로 복사
