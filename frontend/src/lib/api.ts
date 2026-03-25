@@ -47,6 +47,12 @@ export const api = {
         method: "POST",
         body: JSON.stringify(payload),
       }),
+    update: (id: number, payload: Partial<Omit<Report, "id">>) =>
+      req<Report>(`/reports/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      }),
+    delete: (id: number) => req<void>(`/reports/${id}`, { method: "DELETE" }),
     statuses: (reportId: number) =>
       req<DeptStatus[]>(`/reports/${reportId}/statuses`),
     submit: (reportId: number, deptId: number, payload?: { submission_type: "direct" | "file"; file_url?: string | null }) =>

@@ -50,6 +50,7 @@ async def convert_hwp_to_pdf(file: UploadFile = File(...)):
                     "input": "upload-hwp",
                     "output_format": "pdf",
                     "input_format": ext.lstrip("."),
+                    "page_range": "1",
                 },
                 "export-pdf": {
                     "operation": "export/url",

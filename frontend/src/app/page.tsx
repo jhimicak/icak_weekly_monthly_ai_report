@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import { Department, Report } from "@/lib/types";
 import { FileText, ArrowRight, Loader2, Plus } from "lucide-react";
 import CreateReportModal from "@/components/CreateReportModal";
@@ -13,9 +14,64 @@ export default function HomePage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<number | null>(null);
-  const [showModal, setShowModal] = useState(false);
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [pendingDept, setPendingDept] = useState<Department | null>(null);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedReport || !pendingDept) return;
+
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    const isHwp = ext === "hwp" || ext === "hwpx";
+    const isPdf = file.type === "application/pdf" || ext === "pdf";
+
+    if (!isHwp && !isPdf) {
+      toast("error", "HWP 또는 PDF 파일만 업로드 가능합니다.");
+      return;
+    }
+    if (!supabase) {
+      toast("error", "Supabase 설정이 필요합니다. 관리자에게 문의해주세요.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      let uploadFile: File | Blob = file;
+
+      if (isHwp) {
+        toast("success", "HWP 파일을 PDF로 변환 중...");
+        const pdfBlob = await api.convert.hwp2pdf(file);
+        uploadFile = pdfBlob;
+      }
+
+      const fileName = `${selectedReport}_${pendingDept.id}_${Date.now()}.pdf`;
+      const { error } = await supabase.storage.from("reports").upload(fileName, uploadFile, {
+        upsert: true,
+        contentType: "application/pdf",
+      });
+      if (error) throw error;
+
+      const { data: publicData } = supabase.storage.from("reports").getPublicUrl(fileName);
+
+      await api.reports.submit(selectedReport, pendingDept.id, {
+        submission_type: "file",
+        file_url: publicData.publicUrl,
+      });
+
+      toast("success", isHwp ? "HWP가 PDF로 변환되어 제출되었습니다." : "PDF 파일이 성공적으로 제출되었습니다.");
+      setShowTypeModal(false);
+    } catch (err: unknown) {
+      console.error(err);
+      const msg = err instanceof Error ? err.message : "파일 업로드 및 제출에 실패했습니다.";
+      toast("error", msg);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   useEffect(() => {
     Promise.all([api.departments.list(), api.reports.list()])
@@ -26,13 +82,6 @@ export default function HomePage() {
       })
       .finally(() => setLoading(false));
   }, []);
-
-  const handleCreated = (report: Report) => {
-    setReports((prev) => [report, ...prev]);
-    setSelectedReport(report.id);
-    setShowModal(false);
-    toast("success", "새 보고서가 생성되었습니다.");
-  };
 
   if (loading)
     return (
@@ -62,14 +111,6 @@ export default function HomePage() {
           <h2 className="font-semibold flex xl:items-center gap-2" style={{ color: "var(--text-primary)" }}>
             <span className="text-lg">📋</span> 보고서 선택
           </h2>
-          <button
-            className="btn-primary"
-            onClick={() => setShowModal(true)}
-            style={{ padding: "6px 12px" }}
-          >
-            <Plus size={14} />
-            새 보고서
-          </button>
         </div>
         
         {reports.length > 0 ? (
@@ -142,13 +183,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {showModal && (
-        <CreateReportModal 
-          onClose={() => setShowModal(false)} 
-          onCreated={handleCreated} 
-        />
-      )}
-
       {showTypeModal && pendingDept && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="card w-full max-w-sm p-6 space-y-6 animate-in fade-in zoom-in duration-200">
@@ -172,15 +206,30 @@ export default function HomePage() {
                 <span className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>웹 에디터를 사용하여 작성</span>
               </Link>
 
-              <Link
-                href={`/editor/${selectedReport}/${pendingDept.id}?fileMode=true`}
-                className="flex flex-col items-center justify-center p-5 rounded-xl border transition-all hover:bg-indigo-50/30 group"
-                style={{ borderColor: "var(--border)" }}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex flex-col items-center justify-center p-5 rounded-xl border transition-all hover:bg-indigo-50/30 group disabled:opacity-50"
+                style={{ borderColor: "var(--border)", cursor: uploading ? "not-allowed" : "pointer", width: "100%" }}
               >
-                <span className="text-2xl mb-2">📄</span>
-                <span className="font-semibold text-sm">주간보고 파일 업로드</span>
+                {uploading ? (
+                  <Loader2 className="animate-spin mb-2" size={24} style={{ color: "var(--accent)" }} />
+                ) : (
+                  <span className="text-2xl mb-2">📄</span>
+                )}
+                <span className="font-semibold text-sm">
+                  {uploading ? "업로드 및 변환 중..." : "주간보고 파일 업로드"}
+                </span>
                 <span className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>HWP를 PDF로 변환하여 업로드</span>
-              </Link>
+              </button>
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept=".hwp,.hwpx,.pdf,application/pdf"
+                onChange={handleFileUpload}
+              />
             </div>
 
             <button

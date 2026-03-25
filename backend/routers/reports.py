@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Report, Department, DeptStatus, SubmitStatus
-from schemas import ReportCreate, ReportRead, DeptStatusRead, SubmitPayload
+from schemas import ReportCreate, ReportUpdate, ReportRead, DeptStatusRead, SubmitPayload
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -38,6 +38,21 @@ def get_report(report_id: int, db: Session = Depends(get_db)):
     report = db.get(Report, report_id)
     if not report:
         raise HTTPException(404, detail="보고서를 찾을 수 없습니다.")
+    return report
+
+
+@router.put("/{report_id}", response_model=ReportRead)
+def update_report(report_id: int, payload: ReportUpdate, db: Session = Depends(get_db)):
+    report = db.get(Report, report_id)
+    if not report:
+        raise HTTPException(404, detail="보고서를 찾을 수 없습니다.")
+    
+    update_data = payload.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(report, key, value)
+        
+    db.commit()
+    db.refresh(report)
     return report
 
 

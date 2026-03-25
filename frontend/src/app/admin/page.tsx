@@ -12,6 +12,8 @@ import {
   ChevronUp, ChevronDown, FileDown
 } from "lucide-react";
 import { generateMergedPdf } from "@/lib/pdfBuilder";
+import CreateReportModal from "@/components/CreateReportModal";
+import EditReportModal from "@/components/EditReportModal";
 
 const LEVEL_SYMBOL: Record<number, string> = { 1: "□", 2: "ㅇ", 3: "-", 4: "·" };
 const LEVEL_INDENT: Record<number, string> = {
@@ -29,6 +31,9 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [aggregating, setAggregating] = useState(false);
   const [showAggregate, setShowAggregate] = useState(false);
+  
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   
   // Department Management
   const [departments, setDepartments] = useState<{ id: number; name: string }[]>([]);
@@ -135,6 +140,32 @@ export default function AdminPage() {
     }
   };
 
+  const handleCreated = (report: Report) => {
+    setReports((prev) => [report, ...prev]);
+    setSelectedReport(report.id);
+    setShowCreateModal(false);
+    toast("success", "새 보고서가 생성되었습니다.");
+  };
+
+  const handleUpdated = (updated: Report) => {
+    setReports((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+    setShowEditModal(false);
+    toast("success", "보고서가 수정되었습니다.");
+  };
+
+  const handleDeleteReport = async () => {
+    if (!selectedReport) return;
+    if (!confirm("정말 이 보고서를 삭제하시겠습니까? 이 작업은 되돌릴 수 없으며, 모든 부서의 작성 내용이 전부 삭제됩니다!")) return;
+    try {
+      await api.reports.delete(selectedReport);
+      setReports((prev) => prev.filter((r) => r.id !== selectedReport));
+      setSelectedReport(reports.find(r => r.id !== selectedReport)?.id ?? null);
+      toast("success", "보고서가 삭제되었습니다.");
+    } catch {
+      toast("error", "보고서 삭제 실패");
+    }
+  };
+
   const handlePrint = () => window.print();
 
   const handleDownloadMerged = async () => {
@@ -232,22 +263,39 @@ export default function AdminPage() {
 
       {/* 보고서 탭 */}
       <div className="card p-4 space-y-4 print:hidden">
-        <div className="flex gap-2 flex-wrap">
-          {reports.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => setSelectedReport(r.id)}
-              className="px-4 py-2 rounded-lg text-sm font-medium border transition-all"
-              style={{
-                background: selectedReport === r.id ? "var(--accent)" : "var(--bg-card-hover)",
-                color: selectedReport === r.id ? "#fff" : "var(--text-secondary)",
-                borderColor: selectedReport === r.id ? "transparent" : "var(--border)",
-              }}
-            >
-              {r.title}
-            </button>
-          ))}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex gap-2 flex-wrap flex-1">
+            {reports.map((r) => (
+              <button
+                key={r.id}
+                onClick={() => setSelectedReport(r.id)}
+                className="px-4 py-2 rounded-lg text-sm font-medium border transition-all"
+                style={{
+                  background: selectedReport === r.id ? "var(--accent)" : "var(--bg-card-hover)",
+                  color: selectedReport === r.id ? "#fff" : "var(--text-secondary)",
+                  borderColor: selectedReport === r.id ? "transparent" : "var(--border)",
+                }}
+              >
+                {r.title}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="btn-primary flex-shrink-0"
+            style={{ padding: "6px 12px" }}
+          >
+            <Plus size={14} /> 새 보고서
+          </button>
         </div>
+
+        {selectedReport && (
+          <div className="flex items-center justify-end gap-2 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+            <span className="text-xs mr-auto hidden sm:block" style={{ color: "var(--text-muted)" }}>선택된 보고서 관리</span>
+            <button onClick={() => setShowEditModal(true)} className="text-sm px-3 py-1.5 rounded-md hover:bg-black/5" style={{ color: "var(--text-secondary)" }}>수정</button>
+            <button onClick={handleDeleteReport} className="text-sm px-3 py-1.5 rounded-md hover:bg-red-50" style={{ color: "var(--danger)" }}>삭제</button>
+          </div>
+        )}
       </div>
 
       {/* 진행률 */}
@@ -467,6 +515,18 @@ export default function AdminPage() {
             </p>
           )}
         </div>
+      )}
+
+      {/* 모달 영역 */}
+      {showCreateModal && (
+        <CreateReportModal onClose={() => setShowCreateModal(false)} onCreated={handleCreated} />
+      )}
+      {showEditModal && selectedReport && reports.find((r: any) => r.id === selectedReport) && (
+        <EditReportModal
+          report={reports.find((r: any) => r.id === selectedReport)!}
+          onClose={() => setShowEditModal(false)}
+          onUpdated={handleUpdated}
+        />
       )}
     </div>
   );

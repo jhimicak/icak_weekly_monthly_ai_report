@@ -24,6 +24,13 @@ class ReportCreate(BaseModel):
     type: ReportType = ReportType.weekly
 
 
+class ReportUpdate(BaseModel):
+    title: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    type: ReportType | None = None
+
+
 class ReportRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

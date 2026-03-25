@@ -68,10 +68,10 @@ export async function generateMergedPdf(aggregate: AggregateResult, containerId:
 
   const children = Array.from(container.children) as HTMLElement[];
 
-  // 2. 표지 처리 (항상 첫 번째 자식 — 세로)
+  // 2. 표지 처리 (항상 첫 번째 자식 — 세로 -> 가로로 변경)
   const coverEl = children[0];
   if (coverEl) {
-    await captureElementToPdfPage(finalMergedPdf, coverEl, "p");
+    await captureElementToPdfPage(finalMergedPdf, coverEl, "l");
   }
 
   // 3. 부서별 섹션 처리
