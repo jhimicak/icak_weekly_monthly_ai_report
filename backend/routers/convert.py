@@ -103,7 +103,14 @@ async def convert_hwp_to_pdf(background_tasks: BackgroundTasks, file: UploadFile
         output_path = os.path.join(work_dir, output_filename)
 
         if not os.path.exists(output_path):
-            raise HTTPException(status_code=500, detail="PDF 변환 후 파일을 찾을 수 없습니다. (Crash 발생 가능성)")
+            files_in_dir = os.listdir(work_dir)
+            err_msg = stderr.decode('utf-8', errors='ignore').strip()
+            out_msg = stdout.decode('utf-8', errors='ignore').strip()
+            print(f"[LibreOffice Debug] return_code=0, files={files_in_dir}\nSTDOUT={out_msg}\nSTDERR={err_msg}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"PDF 변환 완료 후 대상 파일이 없습니다.\n디렉토리 파일: {files_in_dir}\nSTDOUT: {out_msg}\nSTDERR: {err_msg}"
+            )
 
         # 4. 첫 페이지만 추출 (빈 페이지 방지)
         final_pdf_path = os.path.join(work_dir, f"final_{uuid.uuid4().hex[:8]}.pdf")
