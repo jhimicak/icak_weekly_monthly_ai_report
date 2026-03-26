@@ -93,13 +93,25 @@ export default function AdminPage() {
     if (!aggregate) return;
     setAiSummarizing(true);
     try {
-      const allText = aggregate.sections.map(sec => {
-        const achievements = sec.items.filter(i => i.category === "achievement").map(i => i.content).join("\n");
-        const plans = sec.items.filter(i => i.category === "plan").map(i => i.content).join("\n");
-        return `[${sec.dept.name}]\n실적:\n${achievements}\n계획:\n${plans}`;
-      }).join("\n\n");
+      const sections = aggregate.sections.map(sec => {
+        if (sec.dept.submission_type === "file") {
+          return {
+            dept_name: sec.dept.name,
+            text: "",
+            file_url: sec.dept.file_url || null,
+          };
+        } else {
+          const achievements = sec.items.filter(i => i.category === "achievement").map(i => i.content).join("\n");
+          const plans = sec.items.filter(i => i.category === "plan").map(i => i.content).join("\n");
+          return {
+            dept_name: sec.dept.name,
+            text: `실적:\n${achievements}\n계획:\n${plans}`,
+            file_url: null,
+          };
+        }
+      });
 
-      const res = await api.ai.summarizeReport(allText);
+      const res = await api.ai.summarizeReport(sections);
       setAiSummary(res.summary);
       toast("success", "AI 총괄 요약이 생성되었습니다.");
     } catch (e: any) {

@@ -106,8 +106,13 @@ class AIRequest(BaseModel):
 class AIResponse(BaseModel):
     summary: str
 
+class SummarizeSection(BaseModel):
+    dept_name: str
+    text: str = ""
+    file_url: str | None = None
+
 class SummarizeReportRequest(BaseModel):
-    report_text: str
+    sections: list[SummarizeSection]
 
 class SummarizeReportResponse(BaseModel):
     summary: str
