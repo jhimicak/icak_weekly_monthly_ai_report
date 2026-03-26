@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { DragDropContext, DropResult } from "@hello-pangea/dnd";
 import {
-  RotateCcw, Send, CheckCircle, Loader2, Sparkles, Unlock, UploadCloud, FileText
+  RotateCcw, Send, CheckCircle, Loader2, Unlock, UploadCloud, FileText
 } from "lucide-react";
 import { ReportItem, Category, Department, Report } from "@/lib/types";
 import { api } from "@/lib/api";
@@ -30,7 +30,6 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
   const [saving, setSaving] = useState(false);
   const [rolling, setRolling] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [submissionType, setSubmissionType] = useState<"direct" | "file">("direct");
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -362,16 +361,6 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
   };
 
 
-  // ── AI 요약 훅 ────────────────────────────────────────────────────────────────
-  const handleAiSummarize = async () => {
-    const allText = [...items.achievement, ...items.plan]
-      .map((i) => i.content)
-      .filter(Boolean)
-      .join("\n");
-    if (!allText) return;
-    const res = await api.ai.summarize(reportId, deptId, allText);
-    setAiSummary(res.summary);
-  };
 
   if (loading)
     return (
@@ -398,10 +387,7 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
             {rolling ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
             지난번 계획 불러오기
           </button>
-          <button className="btn-ghost" onClick={handleAiSummarize}>
-            <Sparkles size={14} />
-            AI 요약
-          </button>
+
           {submitted ? (
             <div className="flex items-center gap-2">
               <span className="status-badge-submitted">
@@ -444,13 +430,6 @@ export default function DepartmentEditor({ reportId, deptId, dept, report }: Pro
         </div>
       </div>
 
-      {/* AI 요약 결과 */}
-      {aiSummary && (
-        <div className="card px-4 py-3 text-sm" style={{ color: "var(--text-secondary)", borderColor: "#4f6ef755" }}>
-          <span className="font-semibold" style={{ color: "var(--accent-light)" }}>🤖 AI 요약 &nbsp;</span>
-          {aiSummary}
-        </div>
-      )}
 
       {/* 2단 에디터 OR PDF 제출 화면 */}
       {submissionType === "file" && submitted ? (

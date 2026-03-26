@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
-import { Department, Report } from "@/lib/types";
+import { Department, Report, DeptStatus } from "@/lib/types";
 import { FileText, ArrowRight, Loader2, Plus } from "lucide-react";
 import CreateReportModal from "@/components/CreateReportModal";
 import { toast } from "@/components/Toast";
@@ -16,6 +16,7 @@ export default function HomePage() {
   const [selectedReport, setSelectedReport] = useState<number | null>(null);
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [pendingDept, setPendingDept] = useState<Department | null>(null);
+  const [statuses, setStatuses] = useState<DeptStatus[]>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -82,6 +83,13 @@ export default function HomePage() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!selectedReport) return;
+    api.reports.statuses(selectedReport)
+      .then(setStatuses)
+      .catch(console.error);
+  }, [selectedReport]);
 
   if (loading)
     return (
@@ -154,31 +162,39 @@ export default function HomePage() {
             <span className="text-lg">🏢</span> 부서 선택
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {departments.map((dept) => (
-              <button
-                key={dept.id}
-                onClick={() => {
-                  setPendingDept(dept);
-                  setShowTypeModal(true);
-                }}
-                className="flex items-center justify-between p-4 rounded-xl border transition-all duration-150 hover:scale-[1.01] text-left w-full"
-                style={{
-                  background: "var(--bg-card-hover)",
-                  borderColor: "var(--border)",
-                }}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-9 h-9 rounded-lg flex items-center justify-center"
-                    style={{ background: "var(--accent)1a", color: "var(--accent)" }}
-                  >
-                    <FileText size={16} />
+            {departments.map((dept) => {
+              const isSubmitted = statuses.find(s => s.dept_id === dept.id)?.status === "submitted";
+              return (
+                <button
+                  key={dept.id}
+                  onClick={() => {
+                    setPendingDept(dept);
+                    setShowTypeModal(true);
+                  }}
+                  className="flex items-center justify-between p-4 rounded-xl border transition-all duration-150 hover:scale-[1.01] text-left w-full relative overflow-hidden"
+                  style={{
+                    background: isSubmitted ? "var(--bg-card)" : "var(--bg-card-hover)",
+                    borderColor: isSubmitted ? "var(--success)" : "var(--border)",
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                      style={{ background: isSubmitted ? "rgba(34,197,94,0.12)" : "var(--accent)1a", color: isSubmitted ? "var(--success)" : "var(--accent)" }}
+                    >
+                      <FileText size={16} />
+                    </div>
+                    <div>
+                      <span className="font-medium text-sm block">{dept.name}</span>
+                      {isSubmitted && (
+                         <span className="text-[10px] font-bold text-emerald-600 mt-0.5 block">제출 완료됨</span>
+                      )}
+                    </div>
                   </div>
-                  <span className="font-medium text-sm">{dept.name}</span>
-                </div>
-                <ArrowRight size={16} style={{ color: "var(--text-muted)" }} />
-              </button>
-            ))}
+                  <ArrowRight size={16} style={{ color: isSubmitted ? "var(--success)" : "var(--text-muted)" }} />
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -193,6 +209,12 @@ export default function HomePage() {
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
                 {pendingDept.name}의 보고서 작성 방식을 선택하세요.
               </p>
+              {statuses.find(s => s.dept_id === pendingDept.id)?.status === "submitted" && (
+                <div className="mt-3 p-3 bg-amber-50/80 border border-amber-200 rounded-lg text-amber-800 text-[13px] font-medium flex items-start text-left gap-2 leading-relaxed">
+                  <span className="shrink-0 text-base">⚠️</span>
+                  <span>이미 <strong>제출이 완료된 부서</strong>입니다.<br/>새로운 방식으로 작성(제출) 시 기존 내용이 덮어씌워집니다.</span>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-3">

@@ -114,13 +114,12 @@ export const api = {
       }),
   },
 
-  // ── AI (Placeholder) ─────────────────────────────────────────────────────────
+  // ── AI ─────────────────────────────────────────────────────────
   ai: {
-    summarize: async (reportId: number, deptId: number, text: string) => {
-      // TODO: 실제 AI 연동 시 이 함수를 채워넣습니다.
-      return req<{ summary: string }>("/ai/summarize", {
+    summarizeReport: async (reportText: string) => {
+      return req<{ summary: string }>("/ai/summarize-report", {
         method: "POST",
-        body: JSON.stringify({ report_id: reportId, dept_id: deptId, text }),
+        body: JSON.stringify({ report_text: reportText }),
       });
     },
   },

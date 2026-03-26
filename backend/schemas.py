@@ -105,3 +105,9 @@ class AIRequest(BaseModel):
 
 class AIResponse(BaseModel):
     summary: str
+
+class SummarizeReportRequest(BaseModel):
+    report_text: str
+
+class SummarizeReportResponse(BaseModel):
+    summary: str

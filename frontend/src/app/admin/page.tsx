@@ -9,7 +9,7 @@ import { toast } from "@/components/Toast";
 import {
   ExternalLink, Building2, Plus, Trash2, Download,
   Loader2, RefreshCw, BarChart3,
-  ChevronUp, ChevronDown, FileDown
+  ChevronUp, ChevronDown, FileDown, Sparkles
 } from "lucide-react";
 import { generateMergedPdf } from "@/lib/pdfBuilder";
 import CreateReportModal from "@/components/CreateReportModal";
@@ -34,6 +34,9 @@ export default function AdminPage() {
   
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+
+  const [aiSummarizing, setAiSummarizing] = useState(false);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
   
   // Department Management
   const [departments, setDepartments] = useState<{ id: number; name: string }[]>([]);
@@ -64,6 +67,7 @@ export default function AdminPage() {
   useEffect(() => {
     setAggregate(null);
     setShowAggregate(false);
+    setAiSummary(null);
     loadStatuses();
   }, [loadStatuses]);
 
@@ -82,6 +86,26 @@ export default function AdminPage() {
       toast("error", "취합에 실패했습니다.");
     } finally {
       setAggregating(false);
+    }
+  };
+
+  const handleGenerateAiSummary = async () => {
+    if (!aggregate) return;
+    setAiSummarizing(true);
+    try {
+      const allText = aggregate.sections.map(sec => {
+        const achievements = sec.items.filter(i => i.category === "achievement").map(i => i.content).join("\n");
+        const plans = sec.items.filter(i => i.category === "plan").map(i => i.content).join("\n");
+        return `[${sec.dept.name}]\n실적:\n${achievements}\n계획:\n${plans}`;
+      }).join("\n\n");
+
+      const res = await api.ai.summarizeReport(allText);
+      setAiSummary(res.summary);
+      toast("success", "AI 총괄 요약이 생성되었습니다.");
+    } catch (e: any) {
+      toast("error", "AI 요약 생성 실패: " + (e.message || ""));
+    } finally {
+      setAiSummarizing(false);
     }
   };
 
@@ -392,6 +416,14 @@ export default function AdminPage() {
           </button>
           {aggregate && (
             <>
+              <button
+                className="btn-primary !bg-indigo-600 hover:!bg-indigo-700"
+                onClick={handleGenerateAiSummary}
+                disabled={aiSummarizing}
+              >
+                {aiSummarizing ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                AI 총괄 요약 생성
+              </button>
               <button className="btn-ghost" onClick={() => setShowAggregate((v) => !v)}>
                 {showAggregate ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 {showAggregate ? "접기" : "펼치기"}
@@ -403,10 +435,6 @@ export default function AdminPage() {
               >
                 {aggregating ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                 통합 PDF 다운로드
-              </button>
-              <button className="btn-ghost" onClick={handlePrint}>
-                <FileDown size={14} />
-                단순 인쇄
               </button>
             </>
           )}
@@ -422,10 +450,10 @@ export default function AdminPage() {
           {/* 표지 (가로형) */}
           <div className="flex flex-col items-center justify-center w-full aspect-[1.414] max-w-[1050px] mx-auto page-break-after border-2 border-gray-800 p-8 mb-12 bg-white print:w-[297mm] print:h-[210mm] print:border-2">
             <h1 
-              className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-[0.5em] md:tracking-[0.8em] mb-12 text-center whitespace-nowrap pl-[0.5em] md:pl-[0.8em]" 
+              className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-[0.2em] md:tracking-[0.4em] mb-12 text-center whitespace-nowrap pl-[0.2em] md:pl-[0.4em]" 
               style={{ fontFamily: "'Malgun Gothic', serif" }}
             >
-              주 간 회 의 자 료
+              {aggregate.report.type === "weekly" ? "주 간 회 의 자 료" : "월 간 회 의 자 료"}
             </h1>
             <p className="text-2xl sm:text-3xl md:text-4xl font-bold mb-20 tracking-widest text-center">
               {aggregate.report.start_date.replace(/-/g, ".")} 
@@ -435,6 +463,20 @@ export default function AdminPage() {
               <p className="text-sm md:text-base font-bold mt-3 text-gray-500 tracking-widest uppercase">ICAK</p>
             </div>
           </div>
+
+          {/* AI 총괄 요약 양식 */}
+          {aiSummary && (
+            <div className="relative mb-12 print:mb-0 print:min-h-[210mm] page-break-after pt-8 px-8">
+              <div className="text-center mb-6">
+                <h2 className="text-3xl font-bold tracking-[0.5em] underline underline-offset-8 decoration-2 inline-block">
+                  AI 총 괄 요 약
+                </h2>
+              </div>
+              <div className="border-2 border-gray-800 p-8 leading-relaxed whitespace-pre-wrap text-base bg-white min-h-[500px]">
+                {aiSummary.replace(/\*\*(.*?)\*\*/g, '$1')}
+              </div>
+            </div>
+          )}
 
           {/* 부서별 보고서 양식 */}
           {aggregate.sections.map((section) => (
@@ -446,7 +488,7 @@ export default function AdminPage() {
               
               <div className="text-center mb-6">
                 <h2 className="text-3xl font-bold tracking-[0.5em] underline underline-offset-8 decoration-2 inline-block">
-                  주 간 업 무 현 황 보 고
+                  {aggregate.report.type === "weekly" ? "주 간 업 무 현 황 보 고" : "월 간 업 무 현 황 보 고"}
                 </h2>
               </div>
               <div className="text-right mb-2 font-bold text-sm">
