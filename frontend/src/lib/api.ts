@@ -116,10 +116,10 @@ export const api = {
 
   // ── AI ─────────────────────────────────────────────────────────
   ai: {
-    summarizeReport: async (reportText: string) => {
+    summarizeReport: async (sections: { dept_name: string; text: string; file_url: string | null }[]) => {
       return req<{ summary: string }>("/ai/summarize-report", {
         method: "POST",
-        body: JSON.stringify({ report_text: reportText }),
+        body: JSON.stringify({ sections }),
       });
     },
   },
