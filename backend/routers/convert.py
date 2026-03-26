@@ -1,141 +1,140 @@
 import asyncio
 import os
 import tempfile
-import uuid
-import shutil
-import subprocess
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, BackgroundTasks
+import httpx
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from pypdf import PdfReader, PdfWriter
 
 router = APIRouter(prefix="/api/convert", tags=["convert"])
 
-def cleanup_temp_dir(dir_path: str):
-    """임시 작업 디렉토리 삭제 유틸리티 (BackgroundTasks 연동용)"""
-    try:
-        if os.path.exists(dir_path):
-            shutil.rmtree(dir_path, ignore_errors=True)
-    except Exception as e:
-        print(f"[Cleanup Error] {e}")
+CLOUDCONVERT_API_KEY = os.environ.get("CLOUDCONVERT_API_KEY", "")
+CLOUDCONVERT_BASE = "https://api.cloudconvert.com/v2"
 
 
 @router.post("/hwp2pdf")
-async def convert_hwp_to_pdf(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+async def convert_hwp_to_pdf(file: UploadFile = File(...)):
     """
-    HWP/HWPX 파일을 LibreOffice를 사용해 PDF로 변환하고
-    첫 페이지만 추출하여 반환합니다. 
-    (Docker 기반 컨테이너 환경 배포 필수)
+    HWP 파일을 CloudConvert API를 사용해 PDF로 변환하여 반환합니다.
+    환경변수 CLOUDCONVERT_API_KEY 가 Render에 설정되어 있어야 합니다.
     """
-    filename = file.filename or "uploaded.hwp"
+    if not CLOUDCONVERT_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="CloudConvert API 키가 서버에 설정되어 있지 않습니다. 관리자에게 문의하세요.",
+        )
+
+    filename = file.filename or ""
     ext = os.path.splitext(filename)[1].lower()
-    
-    if ext not in [".hwp", ".hwpx", ".doc", ".docx"]:
-        raise HTTPException(status_code=400, detail="지원되지 않는 파일 형식입니다. (HWP, HWPX 권장)")
+    if ext not in (".hwp", ".hwpx"):
+        raise HTTPException(status_code=400, detail="HWP 또는 HWPX 파일만 업로드 가능합니다.")
 
     content = await file.read()
     if len(content) == 0:
         raise HTTPException(status_code=400, detail="빈 파일은 변환할 수 없습니다.")
 
-    # 안정적인 변환을 위해 고유한 임시 작업 디렉토리 생성
-    work_dir = tempfile.mkdtemp(prefix="hwp_convert_")
-    
-    # 응답 완료 후 임시 디렉토리를 찌꺼기 없이 삭제하도록 백그라운드 태스크 등록
-    background_tasks.add_task(cleanup_temp_dir, work_dir)
+    headers = {
+        "Authorization": f"Bearer {CLOUDCONVERT_API_KEY}",
+        "Content-Type": "application/json",
+    }
 
-    try:
-        # 1. 입력 파일 쓰기
-        input_filename = f"input_{uuid.uuid4().hex[:8]}{ext}"
-        input_path = os.path.join(work_dir, input_filename)
-        
-        with open(input_path, "wb") as f:
-            f.write(content)
-
-        # 2. LibreOffice headless 변환 실행
-        # 각 변환마다 고유한 UserInstallation 경로를 지정하여 프로필 락 충돌 방지
-        profile_dir = os.path.join(work_dir, "lo_profile")
-        
-        command = [
-            "soffice",
-            f"-env:UserInstallation=file://{profile_dir}",
-            "--headless",
-            "--nologo",
-            "--nofirststartwizard",
-            "--convert-to", "pdf",
-            "--outdir", work_dir,
-            input_path
-        ]
-
-        # 환경변수 HOME을 임시 디렉토리로 설정하여 쓰기 권한 오류 방지
-        env = os.environ.copy()
-        env["HOME"] = work_dir
-
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        # 1. 변환 Job 생성
+        job_payload = {
+            "tasks": {
+                "upload-hwp": {
+                    "operation": "import/upload",
+                },
+                "convert-to-pdf": {
+                    "operation": "convert",
+                    "input": "upload-hwp",
+                    "output_format": "pdf",
+                    "input_format": ext.lstrip("."),
+                    "page_range": "1",
+                },
+                "export-pdf": {
+                    "operation": "export/url",
+                    "input": "convert-to-pdf",
+                },
+            }
+        }
+        job_resp = await client.post(
+            f"{CLOUDCONVERT_BASE}/jobs",
+            headers=headers,
+            json=job_payload,
         )
-
-        try:
-            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=60.0)
-        except asyncio.TimeoutError:
-            process.kill()
-            await process.communicate()
-            raise HTTPException(status_code=504, detail="LibreOffice 변환 시간 초과 (60초)")
-
-        if process.returncode != 0:
-            err_msg = stderr.decode('utf-8', errors='ignore').strip()
-            out_msg = stdout.decode('utf-8', errors='ignore').strip()
-            print(f"[LibreOffice Error] return_code: {process.returncode}\nSTDOUT: {out_msg}\nSTDERR: {err_msg}")
-            
-            # 파일 로드 실패인 경우 상세 메시지 
-            if "source file could not be loaded" in err_msg.lower() or "source file could not be loaded" in out_msg.lower():
-                raise HTTPException(
-                    status_code=500, 
-                    detail=f"PDF 변환 실패: LibreOffice가 파일을 읽을 수 없습니다. (Docker 환경인지 확인하세요) 상세: {err_msg}"
-                )
-            
-            raise HTTPException(status_code=500, detail=f"PDF 변환 실패 ({process.returncode}): {err_msg or out_msg}")
-
-        # 3. 변환된 PDF 결과물 확인
-        output_filename = os.path.splitext(input_filename)[0] + ".pdf"
-        output_path = os.path.join(work_dir, output_filename)
-
-        if not os.path.exists(output_path):
-            files_in_dir = os.listdir(work_dir)
-            err_msg = stderr.decode('utf-8', errors='ignore').strip()
-            out_msg = stdout.decode('utf-8', errors='ignore').strip()
-            print(f"[LibreOffice Debug] return_code=0, files={files_in_dir}\nSTDOUT={out_msg}\nSTDERR={err_msg}")
+        if job_resp.status_code != 201:
             raise HTTPException(
-                status_code=500, 
-                detail=f"PDF 변환 완료 후 대상 파일이 없습니다.\n디렉토리 파일: {files_in_dir}\nSTDOUT: {out_msg}\nSTDERR: {err_msg}"
+                status_code=502,
+                detail=f"CloudConvert job 생성 실패: {job_resp.text}",
+            )
+        job_data = job_resp.json()["data"]
+        job_id = job_data["id"]
+
+        # 2. 업로드 Task에서 presigned URL 가져오기
+        upload_task = next(
+            t for t in job_data["tasks"] if t["name"] == "upload-hwp"
+        )
+        upload_url = upload_task["result"]["form"]["url"]
+        upload_params = upload_task["result"]["form"]["parameters"]
+
+        # 3. HWP 파일 업로드 (multipart form-data)
+        upload_params["file"] = (filename, content, "application/octet-stream")
+        upload_resp = await client.post(
+            upload_url,
+            files=upload_params,
+        )
+        if upload_resp.status_code not in (200, 201, 204):
+            raise HTTPException(
+                status_code=502,
+                detail=f"CloudConvert 파일 업로드 실패: {upload_resp.text}",
             )
 
-        # 4. 첫 페이지만 추출 (빈 페이지 방지)
-        final_pdf_path = os.path.join(work_dir, f"final_{uuid.uuid4().hex[:8]}.pdf")
-        
-        reader = PdfReader(output_path)
-        writer = PdfWriter()
-        
-        if len(reader.pages) > 0:
-            writer.add_page(reader.pages[0])
-            with open(final_pdf_path, "wb") as out_f:
-                writer.write(out_f)
+        # 4. Job 완료까지 폴링 (최대 90초)
+        for _ in range(90):
+            await asyncio.sleep(1)
+            status_resp = await client.get(
+                f"{CLOUDCONVERT_BASE}/jobs/{job_id}",
+                headers=headers,
+            )
+            status_data = status_resp.json()["data"]
+            job_status = status_data["status"]
+
+            if job_status == "finished":
+                break
+            elif job_status == "error":
+                task_errors = [
+                    t.get("message", "")
+                    for t in status_data.get("tasks", [])
+                    if t.get("status") == "error"
+                ]
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"CloudConvert 변환 오류: {' / '.join(task_errors)}",
+                )
         else:
-            raise HTTPException(status_code=500, detail="생성된 PDF가 비어있습니다.")
+            raise HTTPException(status_code=504, detail="CloudConvert 변환 시간 초과 (90초)")
 
-        # 원래 파일명을 바탕으로 전송될 파일명 생성
-        pdf_filename = os.path.splitext(filename)[0] + ".pdf"
-
-        return FileResponse(
-            path=final_pdf_path,
-            media_type="application/pdf",
-            filename=pdf_filename,
+        # 5. 변환된 PDF URL 추출
+        export_task = next(
+            t for t in status_data["tasks"] if t["name"] == "export-pdf"
         )
+        pdf_url = export_task["result"]["files"][0]["url"]
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"[Conversion Error] {e}")
-        raise HTTPException(status_code=500, detail="변환 중 알 수 없는 서버 오류가 발생했습니다.")
+        # 6. PDF 다운로드 후 클라이언트에 반환
+        pdf_resp = await client.get(pdf_url)
+        if pdf_resp.status_code != 200:
+            raise HTTPException(status_code=502, detail="CloudConvert PDF 다운로드 실패")
+
+        pdf_filename = os.path.splitext(filename)[0] + ".pdf"
+        output_path = os.path.join(
+            tempfile.gettempdir(), f"converted_{os.urandom(8).hex()}.pdf"
+        )
+        with open(output_path, "wb") as f:
+            f.write(pdf_resp.content)
+
+    return FileResponse(
+        path=output_path,
+        media_type="application/pdf",
+        filename=pdf_filename,
+    )
