@@ -53,6 +53,7 @@ class Report(Base):
     type: Mapped[ReportType] = mapped_column(
         Enum(ReportType), nullable=False, default=ReportType.weekly
     )
+    ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     items: Mapped[list["ReportItem"]] = relationship(
@@ -61,6 +62,7 @@ class Report(Base):
     dept_statuses: Mapped[list["DeptStatus"]] = relationship(
         back_populates="report", cascade="all, delete-orphan"
     )
+
 
 
 class ReportItem(Base):

@@ -38,6 +38,11 @@ class ReportRead(BaseModel):
     start_date: date
     end_date: date
     type: ReportType
+    ai_summary: str | None = None
+
+
+class AiSummaryUpdate(BaseModel):
+    ai_summary: str | None = None
 
 
 # ── ReportItem ─────────────────────────────────────────────────────────────────

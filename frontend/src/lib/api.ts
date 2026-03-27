@@ -66,6 +66,11 @@ export const api = {
       }),
     aggregate: (reportId: number) =>
       req<AggregateResult>(`/reports/${reportId}/aggregate`),
+    saveAiSummary: (reportId: number, summary: string | null) =>
+      req<Report>(`/reports/${reportId}/ai_summary`, {
+        method: "PATCH",
+        body: JSON.stringify({ ai_summary: summary }),
+      }),
   },
 
   // ── Items ────────────────────────────────────────────────────────────────────

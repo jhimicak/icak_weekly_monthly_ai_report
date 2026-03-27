@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Report, Department, DeptStatus, SubmitStatus
-from schemas import ReportCreate, ReportUpdate, ReportRead, DeptStatusRead, SubmitPayload
+from schemas import ReportCreate, ReportUpdate, ReportRead, DeptStatusRead, SubmitPayload, AiSummaryUpdate
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -102,6 +102,7 @@ def submit_report(report_id: int, dept_id: int, payload: SubmitPayload = None, d
     return r
 
 
+
 @router.post("/{report_id}/recall/{dept_id}", response_model=DeptStatusRead)
 def recall_report(report_id: int, dept_id: int, db: Session = Depends(get_db)):
     """제출 취소 (draft로 되돌리기)"""
@@ -117,3 +118,17 @@ def recall_report(report_id: int, dept_id: int, db: Session = Depends(get_db)):
     r.dept_name = ds.department.name
     r.report_title = ds.report.title
     return r
+
+
+# ── AI 요약 저장/초기화 ─────────────────────────────────────────────────────────
+
+@router.patch("/{report_id}/ai_summary", response_model=ReportRead)
+def save_ai_summary(report_id: int, payload: AiSummaryUpdate, db: Session = Depends(get_db)):
+    """AI 총괄 요약을 보고서에 저장하거나 초기화"""
+    report = db.get(Report, report_id)
+    if not report:
+        raise HTTPException(404, detail="보고서를 찾을 수 없습니다.")
+    report.ai_summary = payload.ai_summary
+    db.commit()
+    db.refresh(report)
+    return report

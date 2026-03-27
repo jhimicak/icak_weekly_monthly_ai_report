@@ -15,6 +15,7 @@ export interface Report {
   start_date: string;
   end_date: string;
   type: ReportType;
+  ai_summary?: string | null;
 }
 
 export interface ReportItem {

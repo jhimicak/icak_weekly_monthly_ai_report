@@ -77,8 +77,18 @@ export default function AdminPage() {
     setAggregating(true);
     setAggregate(null);
     try {
-      const data = await api.reports.aggregate(selectedReport);
+      const [data, reportData] = await Promise.all([
+        api.reports.aggregate(selectedReport),
+        api.reports.get(selectedReport),
+      ]);
       setAggregate(data);
+      // 기존 저장된 AI 요약이 있으면 복원
+      if (reportData.ai_summary) {
+        setAiSummary(reportData.ai_summary);
+        toast("info", "저장된 AI 총괄 요약을 불러왔습니다.");
+      } else {
+        setAiSummary(null);
+      }
       setShowAggregate(true);
       setTimeout(() => {
         document.getElementById("aggregate-preview")?.scrollIntoView({ behavior: "smooth" });
@@ -91,8 +101,10 @@ export default function AdminPage() {
   };
 
   const handleGenerateAiSummary = async () => {
-    if (!aggregate) return;
+    if (!aggregate || !selectedReport) return;
     setAiSummarizing(true);
+    // 기존 요약 초기화
+    setAiSummary(null);
     try {
       const sections = aggregate.sections.map(sec => {
         if (sec.dept.submission_type === "file") {
@@ -114,7 +126,9 @@ export default function AdminPage() {
 
       const res = await api.ai.summarizeReport(sections);
       setAiSummary(res.summary);
-      toast("success", "AI 총괄 요약이 생성되었습니다.");
+      // 생성한 요약을 DB에 저장
+      await api.reports.saveAiSummary(selectedReport, res.summary);
+      toast("success", "AI 총괄 요약이 생성 및 저장되었습니다.");
     } catch (e: any) {
       toast("error", "AI 요약 생성 실패: " + (e.message || ""));
     } finally {
@@ -470,7 +484,7 @@ export default function AdminPage() {
               {aggregate.report.type === "weekly" ? "주 간 회 의 자 료" : "월 간 회 의 자 료"}
             </h1>
             <p className="text-2xl sm:text-3xl md:text-4xl font-bold mb-20 tracking-widest text-center">
-              {aggregate.report.start_date.replace(/-/g, ".")} 
+              {aggregate.report.end_date.replace(/-/g, ".")} 
             </p>
             <div className="mt-16 text-center pb-4 border-t-2 border-gray-800 pt-10 w-64 md:w-80">
               <h2 className="text-3xl sm:text-4xl font-black tracking-[0.2em] md:tracking-widest text-[#005a3c]">해외건설협회</h2>

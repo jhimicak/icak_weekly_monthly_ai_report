@@ -1,11 +1,32 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 from database import Base, engine
 from routers import departments, reports, items, ai, convert
 
 # DB 테이블 자동 생성
 Base.metadata.create_all(bind=engine)
+
+# ai_summary 컬럼 마이그레이션 (기존 DB 에 해당 컬럼이 없을 경우 자동 추가)
+try:
+    with engine.connect() as conn:
+        db_url = str(engine.url)
+        if db_url.startswith("sqlite"):
+            result = conn.execute(text("PRAGMA table_info(reports)"))
+            cols = [row[1] for row in result]
+        else:
+            result = conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name='reports' AND column_name='ai_summary'"
+            ))
+            cols = [row[0] for row in result]
+        if "ai_summary" not in cols:
+            conn.execute(text("ALTER TABLE reports ADD COLUMN ai_summary TEXT"))
+            conn.commit()
+except Exception as e:
+    print(f"[마이그레이션 주의] ai_summary 컬럼 추가 중 오류 (이미 존재하면 무시): {e}")
+
 
 app = FastAPI(
     title="Smart Report Hub API",
