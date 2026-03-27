@@ -37,6 +37,7 @@ export default function AdminPage() {
 
   const [aiSummarizing, setAiSummarizing] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [showPdfModal, setShowPdfModal] = useState(false);
   
   // Department Management
   const [departments, setDepartments] = useState<{ id: number; name: string }[]>([]);
@@ -204,9 +205,13 @@ export default function AdminPage() {
 
   const handlePrint = () => window.print();
 
-  const handleDownloadMerged = async () => {
+  const handleDownloadMerged = async (includeAiSummary: boolean) => {
     if (!aggregate) return;
+    setShowPdfModal(false);
     setAggregating(true);
+    // If not including AI summary, temporarily hide it from the DOM snapshot
+    const summaryEl = document.getElementById("ai-summary-block");
+    if (summaryEl) summaryEl.style.display = includeAiSummary ? "" : "none";
     try {
       await generateMergedPdf(aggregate, "aggregate-preview");
       toast("success", "통합 PDF 다운로드를 시작합니다.");
@@ -214,6 +219,7 @@ export default function AdminPage() {
       console.error(e);
       toast("error", "PDF 병합 중 오류가 발생했습니다.");
     } finally {
+      if (summaryEl) summaryEl.style.display = "";
       setAggregating(false);
     }
   };
@@ -440,9 +446,9 @@ export default function AdminPage() {
                 {showAggregate ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 {showAggregate ? "접기" : "펼치기"}
               </button>
-              <button 
-                className="btn-primary !bg-emerald-600 hover:!bg-emerald-700" 
-                onClick={handleDownloadMerged}
+              <button
+                className="btn-primary !bg-emerald-600 hover:!bg-emerald-700"
+                onClick={() => setShowPdfModal(true)}
                 disabled={aggregating}
               >
                 {aggregating ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
@@ -476,16 +482,23 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* AI 총괄 요약 양식 */}
+          {/* AI 총괄 요약 페이지 */}
           {aiSummary && (
-            <div className="relative mb-12 print:mb-0 print:min-h-[210mm] page-break-after pt-8 px-8">
+            <div id="ai-summary-block" className="relative mb-12 print:mb-0 print:min-h-[297mm] page-break-after pt-8 px-8">
               <div className="text-center mb-6">
                 <h2 className="text-3xl font-bold tracking-[0.5em] underline underline-offset-8 decoration-2 inline-block">
                   AI 총 괄 요 약
                 </h2>
               </div>
-              <div className="border-2 border-gray-800 p-8 leading-relaxed whitespace-pre-wrap text-base bg-white min-h-[500px]">
-                {aiSummary.replace(/\*\*(.*?)\*\*/g, '$1')}
+              <div className="border-2 border-gray-800 p-8 leading-relaxed bg-white min-h-[500px] text-sm">
+                {aiSummary.split("\n").map((line, idx) => {
+                  if (line.startsWith("## ")) return <h2 key={idx} className="text-lg font-bold mt-6 mb-3 border-b border-gray-300 pb-1">{line.replace(/^##\s*/, "")}</h2>;
+                  if (line.startsWith("### ")) return <h3 key={idx} className="text-base font-bold mt-4 mb-2 text-gray-800">{line.replace(/^###\s*/, "")}</h3>;
+                  if (line.startsWith("---")) return <hr key={idx} className="my-4 border-gray-400" />;
+                  if (line.startsWith("- ")) return <p key={idx} className="ml-4 mb-1 leading-relaxed">{"ㅇ "}{line.replace(/^-\s*/, "").replace(/\*\*(.*?)\*\*/g, "$1")}</p>;
+                  if (line.trim() === "") return <div key={idx} className="h-2" />;
+                  return <p key={idx} className="mb-1">{line.replace(/\*\*(.*?)\*\*/g, "$1")}</p>;
+                })}
               </div>
             </div>
           )}
@@ -584,6 +597,46 @@ export default function AdminPage() {
           onClose={() => setShowEditModal(false)}
           onUpdated={handleUpdated}
         />
+      )}
+
+      {/* PDF 다운로드 모달 */}
+      {showPdfModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.5)" }}
+          onClick={() => setShowPdfModal(false)}
+        >
+          <div
+            className="card p-7 max-w-sm w-full mx-4 space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>통합 PDF 다운로드</h3>
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              AI 총괄 요약 페이지를 포함하여 다운로드하시겠습니까?
+            </p>
+            {!aiSummary && (
+              <p className="text-xs px-3 py-2 rounded-lg" style={{ background: "var(--bg-card-hover)", color: "var(--text-muted)" }}>
+                💡 AI 요약을 포함하려면 먼저 &#39;AI 총괄 요약 생성&#39; 버튼을 눌러 요약을 생성해야 합니다.
+              </p>
+            )}
+            <div className="flex gap-3 pt-1">
+              <button
+                className="flex-1 btn-primary !bg-emerald-600 hover:!bg-emerald-700"
+                disabled={!aiSummary}
+                onClick={() => handleDownloadMerged(true)}
+              >
+                <Sparkles size={14} /> AI 요약 포함
+              </button>
+              <button
+                className="flex-1 btn-primary"
+                onClick={() => handleDownloadMerged(false)}
+              >
+                <Download size={14} /> 미포함
+              </button>
+              <button className="btn-ghost" onClick={() => setShowPdfModal(false)}>취소</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
