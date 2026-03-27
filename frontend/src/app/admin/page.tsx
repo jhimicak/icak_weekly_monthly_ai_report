@@ -506,17 +506,18 @@ export default function AdminPage() {
 
             // 블록 배열 → JSX 렌더
             const renderBlock = (block: string[], bIdx: number) => (
-              <div key={bIdx} className="mb-2">
+              <div key={bIdx} className="mb-3.5">
                 {block.map((line, idx) => {
                   if (line.startsWith("## ")) return <h2 key={idx} className="text-sm font-bold mb-2 pb-1 border-b-2 border-gray-700">{line.replace(/^##\s*/, "")}</h2>;
-                  if (line.startsWith("### ")) return <h3 key={idx} className="text-[11px] font-bold mt-1 mb-0.5 text-gray-800 border-l-2 border-gray-500 pl-1">{line.replace(/^###\s*/, "")}</h3>;
+                  if (line.startsWith("### ")) return <h3 key={idx} className="text-[12px] font-bold mt-1 mb-1 text-gray-800 border-l-2 border-gray-500 pl-1">{line.replace(/^###\s*/, "")}</h3>;
                   if (line.startsWith("---")) return null;
-                  if (line.startsWith("- ")) return <p key={idx} className="ml-2 text-[10px] leading-snug text-gray-700">{"ㅇ "}{line.replace(/^-\s*/, "").replace(/\*\*(.*?)\*\*/g, "$1")}</p>;
+                  if (line.startsWith("- ")) return <p key={idx} className="ml-2 text-[11px] leading-snug text-gray-700">{"ㅇ "}{line.replace(/^-\s*/, "").replace(/\*\*(.*?)\*\*/g, "$1")}</p>;
                   if (line.trim() === "") return null;
-                  return <p key={idx} className="text-[10px] text-gray-600">{line.replace(/\*\*(.*?)\*\*/g, "$1")}</p>;
+                  return <p key={idx} className="text-[11px] text-gray-600">{line.replace(/\*\*(.*?)\*\*/g, "$1")}</p>;
                 })}
               </div>
             );
+
 
             const SummaryPage = ({ id, sectionLines }: { id: string; sectionLines: string[] }) => {
               const blocks = splitToDeptBlocks(sectionLines);
