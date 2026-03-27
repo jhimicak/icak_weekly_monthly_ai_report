@@ -478,26 +478,54 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* AI 총괄 요약 페이지 */}
-          {aiSummary && (
-            <div id="ai-summary-block" className="relative mb-12 print:mb-0 print:min-h-[297mm] page-break-after pt-8 px-8">
-              <div className="text-center mb-6">
-                <h2 className="text-3xl font-bold tracking-[0.5em] underline underline-offset-8 decoration-2 inline-block">
-                  AI 총 괄 요 약
-                </h2>
+          {/* AI 총괄 요약 - 두 페이지로 분리 (실적/계획) */}
+          {aiSummary && (() => {
+            const lines = aiSummary.split("\n");
+            // `## 1.` 과 `## 2.` 로 두 섹션 분리
+            const sec1Start = lines.findIndex(l => l.startsWith("## ") && l.match(/1\./));
+            const sec2Start = lines.findIndex(l => l.startsWith("## ") && l.match(/2\./));
+            const section1 = sec1Start !== -1
+              ? (sec2Start !== -1 ? lines.slice(sec1Start, sec2Start) : lines.slice(sec1Start))
+              : lines;
+            const section2 = sec2Start !== -1 ? lines.slice(sec2Start) : [];
+
+            const renderLines = (ls: string[]) => ls.map((line, idx) => {
+              if (line.startsWith("## ")) return <h2 key={idx} className="text-lg font-bold mb-4 pb-2 border-b-2 border-gray-700">{line.replace(/^##\s*/, "")}</h2>;
+              if (line.startsWith("### ")) return <h3 key={idx} className="text-sm font-bold mt-3 mb-1 text-gray-800">{line.replace(/^###\s*/, "")}</h3>;
+              if (line.startsWith("---")) return <hr key={idx} className="my-3 border-gray-400" />;
+              if (line.startsWith("- ")) return <p key={idx} className="ml-4 mb-1 text-xs leading-relaxed">{"ㅇ "}{line.replace(/^-\s*/, "").replace(/\*\*(.*?)\*\*/g, "$1")}</p>;
+              if (line.trim() === "") return <div key={idx} className="h-1" />;
+              return <p key={idx} className="mb-1 text-xs">{line.replace(/\*\*(.*?)\*\*/g, "$1")}</p>;
+            });
+
+            const SummaryPage = ({ id, children }: { id: string; children: React.ReactNode }) => (
+              <div
+                id={id}
+                className="relative mb-12 print:mb-0 page-break-after"
+                style={{ /* 가로 A4 비율: aspect ~1.414 */ }}
+              >
+                <div className="w-full max-w-[1050px] mx-auto print:max-w-none px-8 pt-8 pb-6 bg-white">
+                  <div className="text-center mb-5">
+                    <h2 className="text-2xl font-bold tracking-[0.5em] underline underline-offset-8 decoration-2 inline-block">
+                      AI 총 괄 요 약
+                    </h2>
+                  </div>
+                  <div className="border-2 border-gray-800 p-6 bg-white min-h-[140mm]">
+                    {children}
+                  </div>
+                </div>
               </div>
-              <div className="border-2 border-gray-800 p-8 leading-relaxed bg-white min-h-[500px] text-sm">
-                {aiSummary.split("\n").map((line, idx) => {
-                  if (line.startsWith("## ")) return <h2 key={idx} className="text-lg font-bold mt-6 mb-3 border-b border-gray-300 pb-1">{line.replace(/^##\s*/, "")}</h2>;
-                  if (line.startsWith("### ")) return <h3 key={idx} className="text-base font-bold mt-4 mb-2 text-gray-800">{line.replace(/^###\s*/, "")}</h3>;
-                  if (line.startsWith("---")) return <hr key={idx} className="my-4 border-gray-400" />;
-                  if (line.startsWith("- ")) return <p key={idx} className="ml-4 mb-1 leading-relaxed">{"ㅇ "}{line.replace(/^-\s*/, "").replace(/\*\*(.*?)\*\*/g, "$1")}</p>;
-                  if (line.trim() === "") return <div key={idx} className="h-2" />;
-                  return <p key={idx} className="mb-1">{line.replace(/\*\*(.*?)\*\*/g, "$1")}</p>;
-                })}
-              </div>
-            </div>
-          )}
+            );
+
+            return (
+              <>
+                <SummaryPage id="ai-summary-block-1">{renderLines(section1)}</SummaryPage>
+                {section2.length > 0 && (
+                  <SummaryPage id="ai-summary-block-2">{renderLines(section2)}</SummaryPage>
+                )}
+              </>
+            );
+          })()}
 
           {/* 부서별 보고서 양식 */}
           {aggregate.sections.map((section) => (

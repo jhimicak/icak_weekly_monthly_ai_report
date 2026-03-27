@@ -74,11 +74,13 @@ export async function generateMergedPdf(aggregate: AggregateResult, containerId:
     await captureElementToPdfPage(finalMergedPdf, coverEl, "l");
   }
 
-  // 3. AI 총괄 요약 페이지 처리 (세로 A4)
+  // 3. AI 총괄 요약 페이지 처리 (가로 A4, 두 페이지)
   if (includeAiSummary) {
-    const summaryEl = document.getElementById("ai-summary-block");
-    if (summaryEl) {
-      await captureElementToPdfPage(finalMergedPdf, summaryEl, "p");
+    for (const blockId of ["ai-summary-block-1", "ai-summary-block-2"]) {
+      const summaryEl = document.getElementById(blockId);
+      if (summaryEl) {
+        await captureElementToPdfPage(finalMergedPdf, summaryEl, "l");
+      }
     }
   }
 
