@@ -5,7 +5,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { Department, Report, DeptStatus } from "@/lib/types";
-import { FileText, ArrowRight, Loader2, Plus } from "lucide-react";
+import { FileText, ArrowRight, Loader2, Plus, Download } from "lucide-react";
 import CreateReportModal from "@/components/CreateReportModal";
 import { toast } from "@/components/Toast";
 
@@ -209,12 +209,37 @@ export default function HomePage() {
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
                 {pendingDept.name}의 보고서 작성 방식을 선택하세요.
               </p>
-              {statuses.find(s => s.dept_id === pendingDept.id)?.status === "submitted" && (
-                <div className="mt-3 p-3 bg-amber-50/80 border border-amber-200 rounded-lg text-amber-800 text-[13px] font-medium flex items-start text-left gap-2 leading-relaxed">
-                  <span className="shrink-0 text-base">⚠️</span>
-                  <span>이미 <strong>제출이 완료된 부서</strong>입니다.<br/>새로운 방식으로 작성(제출) 시 기존 내용이 덮어씌워집니다.</span>
-                </div>
-              )}
+              {(() => {
+                const deptStatus = statuses.find(s => s.dept_id === pendingDept.id);
+                if (deptStatus?.status !== "submitted") return null;
+                const fileUrl = deptStatus.file_url;
+                const fileName = fileUrl
+                  ? decodeURIComponent(fileUrl.split("/").pop() ?? "").replace(/^\d+_\d+_\d+_/, "")
+                  : null;
+                return (
+                  <div className="mt-3 space-y-2 text-left">
+                    <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-lg text-amber-800 text-[13px] font-medium flex items-start gap-2 leading-relaxed">
+                      <span className="shrink-0 text-base">⚠️</span>
+                      <span>이미 <strong>제출이 완료된 부서</strong>입니다.<br/>새로운 방식으로 작성(제출) 시 기존 내용이 덮어씌워집니다.</span>
+                    </div>
+                    {fileUrl && fileName && (
+                      <a
+                        href={fileUrl}
+                        download={fileName}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg border text-[13px] font-medium transition-colors hover:bg-emerald-50"
+                        style={{ borderColor: "var(--success)", color: "var(--success)" }}
+                      >
+                        <Download size={14} className="shrink-0" />
+                        <span className="truncate" title={fileName}>{fileName}</span>
+                      </a>
+                    )}
+                  </div>
+                );
+              })()}
+
             </div>
 
             <div className="grid grid-cols-1 gap-3">

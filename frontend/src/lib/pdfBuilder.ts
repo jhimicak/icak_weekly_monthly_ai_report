@@ -57,7 +57,7 @@ async function captureElementToPdfPage(
  * 전 부서의 보고서를 하나의 PDF로 병합하여 다운로드합니다.
  * 직접 작성한 부서는 HTML을 캡처하고, 파일 업로드 부서는 원본 PDF를 가져와 합칩니다.
  */
-export async function generateMergedPdf(aggregate: AggregateResult, containerId: string) {
+export async function generateMergedPdf(aggregate: AggregateResult, containerId: string, includeAiSummary = false) {
   const container = document.getElementById(containerId);
   if (!container) {
     throw new Error("미리보기 컨테이너를 찾을 수 없습니다.");
@@ -68,13 +68,21 @@ export async function generateMergedPdf(aggregate: AggregateResult, containerId:
 
   const children = Array.from(container.children) as HTMLElement[];
 
-  // 2. 표지 처리 (항상 첫 번째 자식 — 세로 -> 가로로 변경)
+  // 2. 표지 처리 (항상 첫 번째 자식 — 가로 A4)
   const coverEl = children[0];
   if (coverEl) {
     await captureElementToPdfPage(finalMergedPdf, coverEl, "l");
   }
 
-  // 3. 부서별 섹션 처리
+  // 3. AI 총괄 요약 페이지 처리 (세로 A4)
+  if (includeAiSummary) {
+    const summaryEl = document.getElementById("ai-summary-block");
+    if (summaryEl) {
+      await captureElementToPdfPage(finalMergedPdf, summaryEl, "p");
+    }
+  }
+
+  // 4. 부서별 섹션 처리
   for (const section of aggregate.sections) {
     const sectionEl = children.find(
       (child) => child.getAttribute("data-dept-id") === String(section.dept.id)

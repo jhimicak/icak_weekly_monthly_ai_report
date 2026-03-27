@@ -209,17 +209,13 @@ export default function AdminPage() {
     if (!aggregate) return;
     setShowPdfModal(false);
     setAggregating(true);
-    // If not including AI summary, temporarily hide it from the DOM snapshot
-    const summaryEl = document.getElementById("ai-summary-block");
-    if (summaryEl) summaryEl.style.display = includeAiSummary ? "" : "none";
     try {
-      await generateMergedPdf(aggregate, "aggregate-preview");
+      await generateMergedPdf(aggregate, "aggregate-preview", includeAiSummary);
       toast("success", "통합 PDF 다운로드를 시작합니다.");
     } catch (e) {
       console.error(e);
       toast("error", "PDF 병합 중 오류가 발생했습니다.");
     } finally {
-      if (summaryEl) summaryEl.style.display = "";
       setAggregating(false);
     }
   };
@@ -619,21 +615,21 @@ export default function AdminPage() {
                 💡 AI 요약을 포함하려면 먼저 &#39;AI 총괄 요약 생성&#39; 버튼을 눌러 요약을 생성해야 합니다.
               </p>
             )}
-            <div className="flex gap-3 pt-1">
+            <div className="flex gap-3 pt-1 flex-wrap">
               <button
-                className="flex-1 btn-primary !bg-emerald-600 hover:!bg-emerald-700"
+                className="btn-primary !bg-emerald-600 hover:!bg-emerald-700 whitespace-nowrap"
                 disabled={!aiSummary}
                 onClick={() => handleDownloadMerged(true)}
               >
                 <Sparkles size={14} /> AI 요약 포함
               </button>
               <button
-                className="flex-1 btn-primary"
+                className="btn-primary whitespace-nowrap"
                 onClick={() => handleDownloadMerged(false)}
               >
                 <Download size={14} /> 미포함
               </button>
-              <button className="btn-ghost" onClick={() => setShowPdfModal(false)}>취소</button>
+              <button className="btn-ghost whitespace-nowrap" onClick={() => setShowPdfModal(false)}>취소</button>
             </div>
           </div>
         </div>
