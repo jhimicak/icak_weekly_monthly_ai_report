@@ -478,10 +478,9 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* AI 총괄 요약 - 두 페이지로 분리 (실적/계획) */}
+          {/* AI 총괄 요약 - 가로 A4 2단 컬럼 레이아웃 */}
           {aiSummary && (() => {
             const lines = aiSummary.split("\n");
-            // `## 1.` 과 `## 2.` 로 두 섹션 분리
             const sec1Start = lines.findIndex(l => l.startsWith("## ") && l.match(/1\./));
             const sec2Start = lines.findIndex(l => l.startsWith("## ") && l.match(/2\./));
             const section1 = sec1Start !== -1
@@ -489,43 +488,91 @@ export default function AdminPage() {
               : lines;
             const section2 = sec2Start !== -1 ? lines.slice(sec2Start) : [];
 
-            const renderLines = (ls: string[]) => ls.map((line, idx) => {
-              if (line.startsWith("## ")) return <h2 key={idx} className="text-lg font-bold mb-4 pb-2 border-b-2 border-gray-700">{line.replace(/^##\s*/, "")}</h2>;
-              if (line.startsWith("### ")) return <h3 key={idx} className="text-sm font-bold mt-3 mb-1 text-gray-800">{line.replace(/^###\s*/, "")}</h3>;
-              if (line.startsWith("---")) return <hr key={idx} className="my-3 border-gray-400" />;
-              if (line.startsWith("- ")) return <p key={idx} className="ml-4 mb-1 text-xs leading-relaxed">{"ㅇ "}{line.replace(/^-\s*/, "").replace(/\*\*(.*?)\*\*/g, "$1")}</p>;
-              if (line.trim() === "") return <div key={idx} className="h-1" />;
-              return <p key={idx} className="mb-1 text-xs">{line.replace(/\*\*(.*?)\*\*/g, "$1")}</p>;
-            });
+            // 라인 배열을 부서 블록(### 기준) 단위로 쪼갬
+            const splitToDeptBlocks = (ls: string[]) => {
+              const blocks: string[][] = [];
+              let current: string[] = [];
+              ls.forEach(line => {
+                if (line.startsWith("### ") && current.length > 0) {
+                  blocks.push(current);
+                  current = [line];
+                } else {
+                  current.push(line);
+                }
+              });
+              if (current.length > 0) blocks.push(current);
+              return blocks;
+            };
 
-            const SummaryPage = ({ id, children }: { id: string; children: React.ReactNode }) => (
-              <div
-                id={id}
-                className="relative mb-12 print:mb-0 page-break-after"
-                style={{ /* 가로 A4 비율: aspect ~1.414 */ }}
-              >
-                <div className="w-full max-w-[1050px] mx-auto print:max-w-none px-8 pt-8 pb-6 bg-white">
-                  <div className="text-center mb-5">
-                    <h2 className="text-2xl font-bold tracking-[0.5em] underline underline-offset-8 decoration-2 inline-block">
-                      AI 총 괄 요 약
-                    </h2>
-                  </div>
-                  <div className="border-2 border-gray-800 p-6 bg-white min-h-[140mm]">
-                    {children}
-                  </div>
-                </div>
+            // 블록 배열 → JSX 렌더
+            const renderBlock = (block: string[], bIdx: number) => (
+              <div key={bIdx} className="mb-2">
+                {block.map((line, idx) => {
+                  if (line.startsWith("## ")) return <h2 key={idx} className="text-sm font-bold mb-2 pb-1 border-b-2 border-gray-700">{line.replace(/^##\s*/, "")}</h2>;
+                  if (line.startsWith("### ")) return <h3 key={idx} className="text-[11px] font-bold mt-1 mb-0.5 text-gray-800 border-l-2 border-gray-500 pl-1">{line.replace(/^###\s*/, "")}</h3>;
+                  if (line.startsWith("---")) return null;
+                  if (line.startsWith("- ")) return <p key={idx} className="ml-2 text-[10px] leading-snug text-gray-700">{"ㅇ "}{line.replace(/^-\s*/, "").replace(/\*\*(.*?)\*\*/g, "$1")}</p>;
+                  if (line.trim() === "") return null;
+                  return <p key={idx} className="text-[10px] text-gray-600">{line.replace(/\*\*(.*?)\*\*/g, "$1")}</p>;
+                })}
               </div>
             );
 
+            const SummaryPage = ({ id, sectionLines }: { id: string; sectionLines: string[] }) => {
+              const blocks = splitToDeptBlocks(sectionLines);
+              // 헤더 블록(## 로 시작)과 부서 블록 분리
+              const headerBlock = blocks[0]?.[0]?.startsWith("## ") ? blocks[0] : [];
+              const deptBlocks = headerBlock.length > 0 ? blocks.slice(1) : blocks;
+              const half = Math.ceil(deptBlocks.length / 2);
+              const leftBlocks = deptBlocks.slice(0, half);
+              const rightBlocks = deptBlocks.slice(half);
+
+              return (
+                <div
+                  id={id}
+                  className="relative mb-12 print:mb-0 page-break-after bg-white"
+                  style={{ width: "100%", maxWidth: "1120px", margin: "0 auto 3rem" }}
+                >
+                  {/* 가로 A4 비율 컨테이너 */}
+                  <div style={{ aspectRatio: "297/210", width: "100%", display: "flex", flexDirection: "column", padding: "24px 28px 20px" }}>
+                    {/* 페이지 제목 */}
+                    <div className="text-center mb-3">
+                      <h2 className="text-xl font-bold tracking-[0.4em] underline underline-offset-4 decoration-2 inline-block">
+                        AI 총 괄 요 약
+                      </h2>
+                    </div>
+                    {/* 섹션 헤더 */}
+                    {headerBlock.length > 0 && (
+                      <div className="text-center mb-2">
+                        <span className="text-sm font-bold text-gray-700">{headerBlock[0].replace(/^##\s*/, "")}</span>
+                      </div>
+                    )}
+                    {/* 2단 컬럼 */}
+                    <div className="flex-1 border-2 border-gray-800 flex gap-0 overflow-hidden">
+                      {/* 좌측 컬럼 */}
+                      <div className="flex-1 p-3 border-r border-gray-400 overflow-hidden">
+                        {leftBlocks.map((b, i) => renderBlock(b, i))}
+                      </div>
+                      {/* 우측 컬럼 */}
+                      <div className="flex-1 p-3 overflow-hidden">
+                        {rightBlocks.map((b, i) => renderBlock(b, i + half))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            };
+
             return (
               <>
-                <SummaryPage id="ai-summary-block-1">{renderLines(section1)}</SummaryPage>
+                <SummaryPage id="ai-summary-block-1" sectionLines={section1} />
                 {section2.length > 0 && (
-                  <SummaryPage id="ai-summary-block-2">{renderLines(section2)}</SummaryPage>
+                  <SummaryPage id="ai-summary-block-2" sectionLines={section2} />
                 )}
               </>
             );
           })()}
+
 
           {/* 부서별 보고서 양식 */}
           {aggregate.sections.map((section) => (
